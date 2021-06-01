@@ -131,6 +131,33 @@ class Timecode:
 	def __repr__(self):
 		return f"<{self._framenumber} @ {self._rate}fps {self._mode}>"
 
+	def is_compatible(self, other) -> bool:
+		return self.mode == other.mode and self.rate == other.rate
+	
+	def __add__(self, other):
+		"""Add two compatible timecodes"""
+		if not self.is_compatible(other):
+			raise IncompatibleTimecode("Timecodes must share frame rates and drop frame modes")
+		return Timecode(self.framenumber + other.framenumber, self.rate, self.mode)
+
+	def __sub__(self, other):
+		"""Subtract two compatible timecodes"""
+		if not self.is_compatible(other):
+			raise IncompatibleTimecode("Timecodes must share frame rates and drop frame modes")
+		return Timecode(self.framenumber - other.framenumber, self.rate, self.mode)
+	
+	def __eq__(self, other) -> bool:
+		"""Confirm two timecodes are equal"""
+		return self.is_compatible(other) and self.framenumber == other.framenumber
+	
+	def __lt__(self, other) -> bool:
+		"""Confirm timecode is less than another"""
+		return self.is_compatible(other) and self.framenumber < other.framenumber
+
+	def __gt__(self, other) -> bool:
+		"""Confirm timecode is greater than another"""
+		return not any([self<other, self==other])
+
 
 class TimecodeRange:
 	"""Timecode range with start, end, and duration"""
@@ -146,7 +173,7 @@ class TimecodeRange:
 			raise ValueError("Must supply one of end or duration")
 		
 		# Validate timecode compatibility
-		if self._duration.is_negative():
+		if self._duration.is_negative:
 			raise ValueError("End timecode must occur after start timecode")
 		
 		if self._start.mode != self._duration.mode:
@@ -180,3 +207,12 @@ class TimecodeRange:
 	def rate(self) -> int:
 		"""Timecode rate"""
 		return self._start.rate
+
+	def __eq__(self, other) -> bool:
+		return self.start.is_compatible(other.start) and self.start.framenumber == other.start.framenumber and self.end.framenumber == other.end.framenumber
+	
+	def __lt__(self,  other) -> bool:
+		return self.start.is_compatible(other.start) and self.start < other.start
+
+	def __gt__(self,  other) -> bool:
+		return self.start.is_compatible(other.start) and self.start > other.start
