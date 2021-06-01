@@ -1,8 +1,12 @@
 # venv
 Lib/
 Scripts/
+bin/
 Include/
 pyvenv.cfg
 
 # python
 *.pyc
+
+#vscode
+.vscode/
