@@ -103,7 +103,7 @@ class Subclip(Shot):
 	
 	@property
 	def timecode(self) -> timecode.TimecodeRange:
-		return self.timecode
+		return self._timecode
 	
 	@property
 	def metadata(self) -> Metadata:

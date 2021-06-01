@@ -14,6 +14,11 @@ class Timecode:
 	class Mode(enum.Enum):
 		NDF = 1
 		DF  = 2
+
+		# TODO: Investigate a better way
+		def __str__(self):
+			if self == self.NDF: return "NDF"
+			else: return "DF"
 	
 	def __init__(self, timecode:typing.Union[int,str], rate:typing.Union[int,float,None]=24, mode:typing.Union[Mode,None]=Mode.NDF):
 
@@ -216,3 +221,6 @@ class TimecodeRange:
 
 	def __gt__(self,  other) -> bool:
 		return self.start.is_compatible(other.start) and self.start > other.start
+	
+	def __repr__(self) -> str:
+		return f"<{self.start}-{self.end} {self.rate}fps {self.mode}>"
