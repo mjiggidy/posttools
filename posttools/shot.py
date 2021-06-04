@@ -18,8 +18,12 @@ class AudioTrack(Track):
 	"""An audio track"""	
 	sampling_rate:float
 
-class AbstractDataTrack(Track):
+class AbstractDataTrack(Track, abc.ABC):
 	"""Do your own thang"""
+
+	@abc.abstractmethod
+	def data_at_timecode(self, timecode:timecode.Timecode) -> typing.Any:
+		"""Return data for a given timecode in the shot""" 
 
 class Shot(abc.ABC):
 	"""Abtract class for shots"""
