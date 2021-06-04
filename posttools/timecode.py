@@ -134,7 +134,7 @@ class Timecode:
 		return f"{'-' if self._framenumber < 0 else ''}{str(abs(self.hours)).zfill(2)}:{str(abs(self.minutes)).zfill(2)}:{str(abs(self.seconds)).zfill(2)}{';' if self._mode == self.Mode.DF else ':'}{str(abs(self.frames)).zfill(2)}"
 
 	def __repr__(self):
-		return f"<{self._framenumber} @ {self._rate}fps {self._mode}>"
+		return f"<{str(self)} @ {self._rate}fps {self._mode}>"
 
 	def is_compatible(self, other) -> bool:
 		return self.mode == other.mode and self.rate == other.rate
@@ -161,7 +161,13 @@ class Timecode:
 
 	def __gt__(self, other) -> bool:
 		"""Confirm timecode is greater than another"""
-		return not any([self<other, self==other])
+		return self.is_compatible(other) and self.framenumber > other.framenumber
+	
+	def __le__(self, other) -> bool:
+		return self.is_compatible(other) and self.framenumber <= other.framenumber
+	
+	def __ge__(self, other) -> bool:
+		return self.is_compatible(other) and self.framenumber >= other.framenumber
 
 
 class TimecodeRange:
@@ -222,5 +228,13 @@ class TimecodeRange:
 	def __gt__(self,  other) -> bool:
 		return self.start.is_compatible(other.start) and self.start > other.start
 	
+	def __contains__(self, other) -> bool:
+		return self.start <= other.start and self.end >= other.end
+
 	def __repr__(self) -> str:
 		return f"<{self.start}-{self.end} {self.rate}fps {self.mode}>"
+	
+	def __iter__(self) -> Timecode:
+		for frame in range(self.start.framenumber, self.end.framenumber):
+			yield Timecode(frame, self.rate, self.mode)
+	
