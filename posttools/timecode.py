@@ -220,7 +220,7 @@ class TimecodeRange:
 		return self._start.rate
 
 	def __eq__(self, other) -> bool:
-		return self.start.is_compatible(other.start) and self.start.framenumber == other.start.framenumber and self.end.framenumber == other.end.framenumber
+		return self.start.is_compatible(other.start) and self.start.framenumber == other.start.framenumber and self.duration.framenumber == other.duration.framenumber
 	
 	def __lt__(self,  other) -> bool:
 		return self.start.is_compatible(other.start) and self.start < other.start
@@ -232,7 +232,10 @@ class TimecodeRange:
 		return self.start <= other.start and self.end >= other.end
 
 	def __repr__(self) -> str:
-		return f"<{self.start}-{self.end} {self.rate}fps {self.mode}>"
+		return f"<TimecodeRange {self}>"
+	
+	def __str__(self) -> str:
+		return f"{self.start}-{self.end} {self.rate}fps {self.mode}"
 	
 	def __iter__(self) -> Timecode:
 		for frame in range(self.start.framenumber, self.end.framenumber):
