@@ -20,7 +20,7 @@ class Timecode:
 			if self == self.NDF: return "NDF"
 			else: return "DF"
 	
-	def __init__(self, timecode:typing.Union[int,str], rate:typing.Union[int,float,None]=24, mode:typing.Union[Mode,None]=Mode.NDF):
+	def __init__(self, timecode:typing.Union[int,str], rate:typing.Union[int,float]=24, mode:typing.Union[Mode,None]=Mode.NDF):
 
 		# Parse rate
 		self._rate = round(rate)
