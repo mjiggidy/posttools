@@ -1,5 +1,5 @@
 import typing, abc, enum
-from . import timecode
+from .timecode import TimecodeRange, Timecode
 
 class IncompatibleTrack(Exception):
 	"""A given track is not compatible with the shot"""
@@ -22,7 +22,7 @@ class AbstractDataTrack(Track, abc.ABC):
 	"""Do your own thang"""
 
 	@abc.abstractmethod
-	def data_at_timecode(self, timecode:timecode.Timecode) -> typing.Any:
+	def data_at_timecode(self, timecode:Timecode) -> typing.Any:
 		"""Return data for a given timecode in the shot""" 
 
 class Shot(abc.ABC):
@@ -37,8 +37,12 @@ class Shot(abc.ABC):
 		"""Metadata for shot"""
 
 	@abc.abstractmethod
-	def timecode(self) -> timecode.TimecodeRange:
+	def timecode(self) -> TimecodeRange:
 		"""Timecode of shot"""
+	
+	@abc.abstractmethod
+	def subclip(self, timecode:TimecodeRange) -> "Subclip":
+		"""Create a subclip of this shot"""
 	
 	def __eq__(self, other) -> bool:
 		return self.name == other.name and self.timecode == other.timecode
@@ -54,12 +58,17 @@ class Shot(abc.ABC):
 	# TODO: Gotta test this
 	def __gt__(self, other) -> bool:
 		return all([not self < other, self != other])
+	
+	def __contains__(self, other) -> bool:
+		if not isinstance(other, Shot): return False
+		return self.name == other.name and other.timecode in self.timecode
+
 
 
 class Masterclip(Shot):
 	"""A shot"""
 
-	def __init__(self, name:str, timecode:timecode.TimecodeRange, metadata:typing.Union[Metadata,None]=None):
+	def __init__(self, name:str, timecode:TimecodeRange, metadata:typing.Union[Metadata,None]=None):
 
 		self._name = name
 		self._timecode = timecode
@@ -78,7 +87,7 @@ class Masterclip(Shot):
 		return self._name
 	
 	@property
-	def timecode(self) -> timecode.TimecodeRange:
+	def timecode(self) -> TimecodeRange:
 		"""Timecode range"""
 		return self._timecode
 
@@ -91,6 +100,10 @@ class Masterclip(Shot):
 		"""Add a video track to the shot"""
 		if round(track.frame_rate) != self.timecode.rate:
 			raise IncompatibleTrack(f"The video track frame rate ({track.frame_rate}) is incompatible with this shot's timecode format ({self.timecode.rate} {self.timecode.mode})")
+	
+	def subclip(self, timecode:TimecodeRange) -> "Subclip":
+		"""Make a subclip from this masterclip"""
+		return Subclip(self, timecode)
 
 	def __repr__(self) -> str:
 		return f"<{self._name} {self._timecode.start}-{self._timecode.end}>"
@@ -98,15 +111,15 @@ class Masterclip(Shot):
 class Subclip(Shot):
 	"""Subclip of a shot"""
 
-	def __init__(self, masterclip:Masterclip, timecode:timecode.TimecodeRange):
+	def __init__(self, masterclip:Masterclip, timecode:TimecodeRange):
 
 		self._master = masterclip
-		if timecode.start < masterclip.timecode.start or timecode.end > masterclip.timecode.end:
+		if timecode not in masterclip.timecode:
 			raise ValueError(f"Subclipped timecode ({timecode.start}-{timecode.end}) exceeds the bounds of the masterclip ({masterclip.timecode.start}-{masterclip.timecode.end})")
 		self._timecode = timecode
 	
 	@property
-	def timecode(self) -> timecode.TimecodeRange:
+	def timecode(self) -> TimecodeRange:
 		return self._timecode
 	
 	@property
@@ -120,3 +133,10 @@ class Subclip(Shot):
 	@property
 	def masterclip(self) -> Masterclip:
 		return self._master
+	
+	def subclip(self, timecode:TimecodeRange) -> "Subclip":
+		"""Make a subclip from this masterclip"""
+		return Subclip(self._master, timecode)
+	
+	def __repr__(self) -> str:
+		return f"<Subclip of {self._master.name}, {self.timecode}>"
