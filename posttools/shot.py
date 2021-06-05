@@ -111,11 +111,20 @@ class Masterclip(Shot):
 class Subclip(Shot):
 	"""Subclip of a shot"""
 
-	def __init__(self, masterclip:Masterclip, timecode:TimecodeRange):
+	def __init__(self, masterclip:Shot, timecode:TimecodeRange):
 
-		self._master = masterclip
+		# TODO: Maybe it's ok to just subclip a subclip and make its parent be a subclip
+		# Could do separate methods for "parent" clip as well as access to the ultimate "master" clip
+		# I don't know, man
+		
+		if isinstance(masterclip, self.__class__):
+			self._master = masterclip.masterclip
+		else:
+			self._master = masterclip
+		
 		if timecode not in masterclip.timecode:
 			raise ValueError(f"Subclipped timecode ({timecode.start}-{timecode.end}) exceeds the bounds of the masterclip ({masterclip.timecode.start}-{masterclip.timecode.end})")
+		
 		self._timecode = timecode
 	
 	@property
