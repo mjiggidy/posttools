@@ -64,6 +64,13 @@ class TestTimecodeRange(unittest.TestCase):
 		range_large = TimecodeRange(Timecode("01:00:00:00", rate, mode), Timecode("01:10:00:00", rate, mode))
 		self.assertTrue(range_large in range_large)
 	
+	def test_timecode_inplace_math(self):
+		#rate = 24
+		#mode = Timecode.Mode.NDF
+		tc_base = Timecode("01:00:00:00")
+		tc_base+=1
+		self.assertEqual(tc_base, Timecode("01:00:00:01"))
+	
 
 
 if __name__ == "__main__":
