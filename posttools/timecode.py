@@ -20,7 +20,7 @@ class Timecode:
 			if self == self.NDF: return "NDF"
 			else: return "DF"
 	
-	def __init__(self, timecode:typing.Union[int,str], rate:typing.Union[int,float]=24, mode:typing.Union[Mode,None]=Mode.NDF):
+	def __init__(self, timecode:typing.Union[int,str], rate:typing.Union[int,float]=24, mode:typing.Optional[Mode]=Mode.NDF):
 
 		# Parse rate
 		self._rate = round(rate)
@@ -84,6 +84,43 @@ class Timecode:
 			raise InvalidTimecode("Drop-frame mode only valid for rates divisible by 30")
 	
 	@property
+	def _df_offset(self) -> int:
+		"""Calculate frame offset for drop frame"""
+		
+		if self._mode != self.Mode.DF:
+			return 0
+		
+		# Drop-frame adds two frames every minute, except every ten minutes
+		# First: Figure out the number of frames that would occur in a ten-minute span (will be less than NDF equivalent)
+		final_offset = 0
+		
+		full_minute = self._rate * 60
+
+		# Want 1800 - 2 frames in one minute
+		drop_minute = full_minute - (2 * self._rate // 30)
+		
+		# One full segment = One full second + 9 o' them weird ones
+		drop_segment = full_minute + (drop_minute * 9)
+		
+		# So how many of those do we have
+		drop_segments_elapsed = self._framenumber // drop_segment
+
+		# And then incomplete segment at the end?
+		remaining_frames = self._framenumber % drop_segment
+		drop_minutes_elapsed = max(remaining_frames - full_minute, 0) // drop_minute # TODO: Gonna regret this with negative TCs I just know it
+
+
+
+
+		#print(drop_minutes_elapsed, drop_minute)
+		final_offset = (drop_segments_elapsed * 18) + (drop_minutes_elapsed * 2) + 2
+		# final_offset = (drop_minutes_elapsed * 2) - ()
+		
+
+		return final_offset
+
+	
+	@property
 	def rate(self) -> int:
 		"""Timecode frames per second"""
 		return self._rate
@@ -101,22 +138,22 @@ class Timecode:
 	@property
 	def frames(self) -> int:
 		"""Timcode frame number"""
-		return int(self._framenumber % self._rate)
+		return int((self._framenumber + self._df_offset) % self._rate)
 	
 	@property
 	def seconds(self) -> int:
 		"""Timecode seconds"""
-		return int(self._framenumber / self._rate % 60)
+		return int((self._framenumber + self._df_offset) / self._rate % 60)
 	
 	@property
 	def minutes(self) -> int:
 		"""Timecode minutes"""
-		return int(self._framenumber / self._rate / 60 % 60)
+		return int((self._framenumber + self._df_offset) / self._rate / 60 % 60)
 	
 	@property
 	def hours(self) -> int:
 		"""Timecode hours"""
-		return int(self._framenumber / self._rate / 60 / 60)
+		return int((self._framenumber + self._df_offset) / self._rate / 60 / 60)
 	
 	@property
 	def is_negative(self) -> bool:
@@ -130,26 +167,33 @@ class Timecode:
 	
 	def __str__(self):
 		if self._mode == self.Mode.DF:
-			raise NotImplementedError("NDF timecode string is not yet formatted")
+			pass
+#			raise NotImplementedError("NDF timecode string is not yet formatted")
 		return f"{'-' if self._framenumber < 0 else ''}{str(abs(self.hours)).zfill(2)}:{str(abs(self.minutes)).zfill(2)}:{str(abs(self.seconds)).zfill(2)}{';' if self._mode == self.Mode.DF else ':'}{str(abs(self.frames)).zfill(2)}"
 
 	def __repr__(self):
-		return f"<{str(self)} @ {self._rate}fps {self._mode}>"
+		return f"<{self.__class__.__name__} {str(self)} @ {self._rate}fps {self._mode}>"
 
 	def is_compatible(self, other) -> bool:
-		return self.mode == other.mode and self.rate == other.rate
+		return isinstance(other, self.__class__) and self.mode == other.mode and self.rate == other.rate
 	
 	def __add__(self, other):
 		"""Add two compatible timecodes"""
-		if not self.is_compatible(other):
+		if self.is_compatible(other):
+			return Timecode(self.framenumber + other.framenumber, self.rate, self.mode)
+		elif isinstance(other, int):
+			return Timecode(self.framenumber + other, self.rate, self.mode)
+		else:
 			raise IncompatibleTimecode("Timecodes must share frame rates and drop frame modes")
-		return Timecode(self.framenumber + other.framenumber, self.rate, self.mode)
 
 	def __sub__(self, other):
 		"""Subtract two compatible timecodes"""
-		if not self.is_compatible(other):
+		if self.is_compatible(other):
+			return Timecode(self.framenumber - other.framenumber, self.rate, self.mode)
+		elif isinstance(other, int):
+			return Timecode(self.framenumber - other, self.rate, self.mode)
+		else:
 			raise IncompatibleTimecode("Timecodes must share frame rates and drop frame modes")
-		return Timecode(self.framenumber - other.framenumber, self.rate, self.mode)
 	
 	def __eq__(self, other) -> bool:
 		"""Confirm two timecodes are equal"""
@@ -173,7 +217,7 @@ class Timecode:
 class TimecodeRange:
 	"""Timecode range with start, end, and duration"""
 
-	def __init__(self, start:Timecode, end:typing.Union[Timecode,None]=None, duration:typing.Union[Timecode,None]=None):
+	def __init__(self, start:Timecode, end:typing.Optional[Timecode]=None, duration:typing.Optional[Timecode]=None):
 		self._start = start
 		
 		if isinstance(end, Timecode):
@@ -232,7 +276,7 @@ class TimecodeRange:
 		return self.start <= other.start and self.end >= other.end
 
 	def __repr__(self) -> str:
-		return f"<TimecodeRange {self}>"
+		return f"<{self.__class__.__name__} {self}>"
 	
 	def __str__(self) -> str:
 		return f"{self.start}-{self.end} {self.rate}fps {self.mode}"
