@@ -93,11 +93,12 @@ class Timecode:
 		# Drop-frame adds two frames every minute, except every ten minutes
 		# First: Figure out the number of frames that would occur in a ten-minute span (will be less than NDF equivalent)
 		final_offset = 0
+		drop_offset = (2 * self._rate // 30) # Frames to drop -- 2 per 30fps
 		
 		full_minute = self._rate * 60
 
 		# Want 1800 - 2 frames in one minute
-		drop_minute = full_minute - (2 * self._rate // 30)
+		drop_minute = full_minute - drop_offset
 		
 		# One full segment = One full second + 9 o' them weird ones
 		drop_segment = full_minute + (drop_minute * 9)
@@ -107,13 +108,15 @@ class Timecode:
 
 		# And then incomplete segment at the end?
 		remaining_frames = self._framenumber % drop_segment
+		
+
 		drop_minutes_elapsed = max(remaining_frames - full_minute, 0) // drop_minute # TODO: Gonna regret this with negative TCs I just know it
 
 
 
 
 		#print(drop_minutes_elapsed, drop_minute)
-		final_offset = (drop_segments_elapsed * 18) + (drop_minutes_elapsed * 2) + 2
+		final_offset = (drop_segments_elapsed * 18) + (drop_minutes_elapsed * 2) + drop_offset
 		# final_offset = (drop_minutes_elapsed * 2) - ()
 		
 
