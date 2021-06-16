@@ -91,36 +91,29 @@ class Timecode:
 			return 0
 		
 		# Drop-frame adds two frames every minute, except every ten minutes
-		# First: Figure out the number of frames that would occur in a ten-minute span (will be less than NDF equivalent)
-		final_offset = 0
-		drop_offset = (2 * self._rate // 30) # Frames to drop -- 2 per 30fps
+		# First: Let's get some things straight
+		drop_offset = (2 * self._rate // 30)			# Frames to drop -- 2 per 30fps
 		
-		full_minute = self._rate * 60
-
-		# Want 1800 - 2 frames in one minute
-		drop_minute = full_minute - drop_offset
+		full_minute = self._rate * 60					# Length of a full non-drop minute (in frames) (60 seconds)
+		drop_minute = full_minute - drop_offset			# Length of a drop-minute (in frames)
+		drop_segment = full_minute + (drop_minute * 9)	# Length of a drop-segment (in frames) (One full minute + Nine drop minutes = 10 Minutes)
 		
-		# One full segment = One full second + 9 o' them weird ones
-		drop_segment = full_minute + (drop_minute * 9)
-		
-		# So how many of those do we have
+		# So how many full 10-minute drop-segments have elapsed
 		drop_segments_elapsed = self._framenumber // drop_segment
 
-		# And then incomplete segment at the end?
+		# And as for the remaining frames at the end...
 		remaining_frames = self._framenumber % drop_segment
-		
 
-		drop_minutes_elapsed = max(remaining_frames - full_minute, 0) // drop_minute # TODO: Gonna regret this with negative TCs I just know it
+		# Number of complete drop-minutes
+		#drop_minutes_elapsed = -(-max(remaining_frames - full_minute, 0) // drop_minute)	# TODO: Gonna regret this with negative TCs I just know it
+		drop_minutes_elapsed = max(remaining_frames - full_minute, 0) // drop_minute 		# TODO: Gonna regret this with negative TCs I just know it
 
-
+		# And then any other frames will need a 2-frame boost! Oooh!
+		remainder = drop_offset if (max(remaining_frames - full_minute, 0) % drop_minute) else 0
 
 
 		#print(drop_minutes_elapsed, drop_minute)
-		final_offset = (drop_segments_elapsed * 18) + (drop_minutes_elapsed * 2) + drop_offset
-		# final_offset = (drop_minutes_elapsed * 2) - ()
-		
-
-		return final_offset
+		return (drop_segments_elapsed * (9 * drop_offset)) + (drop_minutes_elapsed * drop_offset) + remainder
 
 	
 	@property
