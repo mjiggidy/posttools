@@ -109,9 +109,10 @@ class Timecode:
 		drop_minutes_elapsed = max(remaining_frames - full_minute, 0) // drop_minute 		# TODO: Gonna regret this with negative TCs I just know it
 
 		# And then any other frames will need a 2-frame boost! Oooh!
-		# TODO: This works but I don't feel good about it.  In fact, I feel nothing.
-		remainder = drop_offset if (max(remaining_frames - full_minute, 0) >= drop_minute) else 0
+		remainder = drop_offset if (max(remaining_frames - full_minute, 0) % drop_minute) else 0
 
+
+		#print(drop_minutes_elapsed, drop_minute)
 		return (drop_segments_elapsed * (9 * drop_offset)) + (drop_minutes_elapsed * drop_offset) + remainder
 
 	
