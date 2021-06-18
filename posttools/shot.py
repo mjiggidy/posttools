@@ -111,20 +111,20 @@ class Masterclip(Shot):
 class Subclip(Shot):
 	"""Subclip of a shot"""
 
-	def __init__(self, masterclip:Shot, timecode:TimecodeRange):
+	def __init__(self, parent:Shot, timecode:TimecodeRange, metadata:typing.Union[Metadata,None]=None):
 
-		# TODO: Maybe it's ok to just subclip a subclip and make its parent be a subclip
-		# Could do separate methods for "parent" clip as well as access to the ultimate "master" clip
-		# I don't know, man
+		if timecode not in parent.timecode:
+			raise ValueError(f"Subclipped timecode ({timecode.start}-{timecode.end}) exceeds the bounds of the masterclip ({parent.timecode.start}-{parent.timecode.end})")
 		
-		if isinstance(masterclip, self.__class__):
-			self._master = masterclip.masterclip
+		# Probably need to put this in the parent class at this point
+		if metadata is None:
+			self._metadata = Metadata()
+		elif isinstance(metadata, Metadata):
+			self._metadata = metadata
 		else:
-			self._master = masterclip
+			raise ValueError("Metadata must be an instance of the Metadata class")
 		
-		if timecode not in masterclip.timecode:
-			raise ValueError(f"Subclipped timecode ({timecode.start}-{timecode.end}) exceeds the bounds of the masterclip ({masterclip.timecode.start}-{masterclip.timecode.end})")
-		
+		self._parent = parent
 		self._timecode = timecode
 	
 	@property
@@ -133,19 +133,30 @@ class Subclip(Shot):
 	
 	@property
 	def metadata(self) -> Metadata:
-		return self._master.metadata
+		return self._metadata
+	
+	@property
+	def fullmetadata(self):
+		return dict(self.metadata, self.parent.fullmetadata)
 	
 	@property
 	def name(self) -> str:
-		return self._master.name
+		return self._parent.name
 	
+	# TODO: There's a way to do this, but not like this
 	@property
 	def masterclip(self) -> Masterclip:
-		return self._master
+		"""Get the masterclip of this subclip"""
+		return self._parent if isinstance(self._parent, Masterclip) else self._parent.masterclip
+
+	@property
+	def parent(self) ->	Shot:
+		"""Get the parent clip of this subclip"""
+		return self._parent
 	
 	def subclip(self, timecode:TimecodeRange) -> "Subclip":
 		"""Make a subclip from this masterclip"""
-		return Subclip(self._master, timecode)
+		return Subclip(self._parent, timecode)
 	
 	def __repr__(self) -> str:
-		return f"<Subclip of {self._master.name}, {self.timecode}>"
+		return f"<Subclip of {self._parent.name}, {self.timecode}>"

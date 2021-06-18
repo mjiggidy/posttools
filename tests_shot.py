@@ -59,7 +59,14 @@ class TestSubclip(unittest.TestCase):
 		))
 
 		self.assertTrue(subsub in master)
-		print(subsub)
+
+		sub.metadata.update({"Comment":"This a subclip now"})
+		self.assertTrue("Comment" not in master.metadata)
+#		self.assertTrue("Comment" in sub.metadata)
+
+		print("Aye yo", sub.metadata)
+
+		#self.assertTrue("Comment" in subsub.metadata)
 
 if __name__ == "__main__":
 	unittest.main()
