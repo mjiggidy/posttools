@@ -115,7 +115,7 @@ class Timecode:
 		remainder = drop_offset if (remaining_drop_frames % drop_minute) else 0
 
 
-		return ((drop_segments_elapsed * (9 * drop_offset)) + (drop_minutes_elapsed * drop_offset) + remainder) * neg + (1 if self.is_negative else 0)
+		return ((drop_segments_elapsed * (9 * drop_offset)) + (drop_minutes_elapsed * drop_offset) + remainder) * neg + (self._rate // 30 if self.is_negative else 0)
 
 	
 	@property
