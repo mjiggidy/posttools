@@ -89,6 +89,9 @@ class Timecode:
 		
 		if self._mode != self.Mode.DF:
 			return 0
+
+		framenumber_normalized = abs(self._framenumber)
+		neg = -1 if self.is_negative else 1
 		
 		# Drop-frame adds two frames every minute, except every ten minutes
 		# First: Let's get some things straight
@@ -99,21 +102,20 @@ class Timecode:
 		drop_segment = full_minute + (drop_minute * 9)	# Length of a drop-segment (in frames) (One full minute + Nine drop minutes = 10 Minutes)
 		
 		# So how many full 10-minute drop-segments have elapsed
-		drop_segments_elapsed = self._framenumber // drop_segment
+		drop_segments_elapsed = framenumber_normalized // drop_segment
 
 		# And as for the remaining frames at the end...
-		remaining_frames = self._framenumber % drop_segment
-
+		remaining_frames = framenumber_normalized % drop_segment
+		remaining_drop_frames = max(remaining_frames - full_minute + 1, 0)	# I don't understand why +1 yet, but that was a problem for like three days. max() will be bad for negative values
+		
 		# Number of complete drop-minutes
-		#drop_minutes_elapsed = -(-max(remaining_frames - full_minute, 0) // drop_minute)	# TODO: Gonna regret this with negative TCs I just know it
-		drop_minutes_elapsed = max(remaining_frames - full_minute + 1, 0) // drop_minute 		# TODO: Gonna regret this with negative TCs I just know it
+		drop_minutes_elapsed = remaining_drop_frames // drop_minute
 
 		# And then any other frames will need a 2-frame boost! Oooh!
-		remainder = drop_offset if (max(remaining_frames - full_minute + 1, 0) % drop_minute) else 0
+		remainder = drop_offset if (remaining_drop_frames % drop_minute) else 0
 
 
-		#print(drop_minutes_elapsed, drop_minute)
-		return (drop_segments_elapsed * (9 * drop_offset)) + (drop_minutes_elapsed * drop_offset) + remainder
+		return ((drop_segments_elapsed * (9 * drop_offset)) + (drop_minutes_elapsed * drop_offset) + remainder) * neg + (1 if self.is_negative else 0)
 
 	
 	@property
@@ -125,7 +127,6 @@ class Timecode:
 	def framenumber(self) -> int:
 		"""Timecode as number of frames elapsed"""
 		return self._framenumber
-	
 	@property
 	def mode(self) -> Mode:
 		"""Drop frame mode"""
