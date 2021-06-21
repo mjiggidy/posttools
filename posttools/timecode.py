@@ -127,30 +127,49 @@ class Timecode:
 	def framenumber(self) -> int:
 		"""Timecode as number of frames elapsed"""
 		return self._framenumber
+
+	@property
+	def formatted(self, rollover:bool=False) -> str:
+		"""Retrieve the timecode as a string with hh:mm:ss:ff formatting"""
+		# TODO: Implement `rollover` flag
+		# TODO: Implement `signed` flag
+		
+		sign = '-' if self._framenumber < 0 else ''
+		separator = ';' if self._mode == self.Mode.DF else ':'
+		df_offset = self._df_offset
+
+		return f"{sign}{abs(self.hours):02d}:{abs(self.minutes):02d}:{abs(self.seconds):02d}{separator}{abs(self.frames):02d}"
+
+
 	@property
 	def mode(self) -> Mode:
 		"""Drop frame mode"""
 		return self._mode
 	
 	@property
-	def frames(self) -> int:
+	def frames(self, df_offset:int=None) -> int:
 		"""Timcode frame number"""
-		return int((self._framenumber + self._df_offset) % self._rate)
+		# TODO: I don't think I can do this df_offset thing with a @property
+		df_offset = df_offset or self._df_offset
+		return int((self._framenumber + df_offset) % self._rate)
 	
 	@property
-	def seconds(self) -> int:
+	def seconds(self, df_offset:int=None) -> int:
 		"""Timecode seconds"""
-		return int((self._framenumber + self._df_offset) / self._rate % 60)
+		df_offset = df_offset or self._df_offset
+		return int((self._framenumber + df_offset) / self._rate % 60)
 	
 	@property
-	def minutes(self) -> int:
+	def minutes(self, df_offset:int=None) -> int:
 		"""Timecode minutes"""
-		return int((self._framenumber + self._df_offset) / self._rate / 60 % 60)
+		df_offset = df_offset or self._df_offset
+		return int((self._framenumber + df_offset) / self._rate / 60 % 60)
 	
 	@property
-	def hours(self) -> int:
+	def hours(self, df_offset:int=None) -> int:
 		"""Timecode hours"""
-		return int((self._framenumber + self._df_offset) / self._rate / 60 / 60)
+		df_offset = df_offset or self._df_offset
+		return int((self._framenumber + df_offset) / self._rate / 60 / 60)
 	
 	@property
 	def is_negative(self) -> bool:
@@ -163,10 +182,7 @@ class Timecode:
 		return not self.is_negative
 	
 	def __str__(self):
-		if self._mode == self.Mode.DF:
-			pass
-#			raise NotImplementedError("NDF timecode string is not yet formatted")
-		return f"{'-' if self._framenumber < 0 else ''}{str(abs(self.hours)).zfill(2)}:{str(abs(self.minutes)).zfill(2)}:{str(abs(self.seconds)).zfill(2)}{';' if self._mode == self.Mode.DF else ':'}{str(abs(self.frames)).zfill(2)}"
+		return self.formatted
 
 	def __repr__(self):
 		return f"<{self.__class__.__name__} {str(self)} @ {self._rate}fps {self._mode}>"
@@ -178,6 +194,8 @@ class Timecode:
 		"""Add two compatible timecodes"""
 		if self.is_compatible(other):
 			return Timecode(self.framenumber + other.framenumber, self.rate, self.mode)
+		elif isinstance(other, str):
+			return self +  Timecode(other, self.rate, self.mode)
 		elif isinstance(other, int):
 			return Timecode(self.framenumber + other, self.rate, self.mode)
 		else:
@@ -189,6 +207,8 @@ class Timecode:
 			return Timecode(self.framenumber - other.framenumber, self.rate, self.mode)
 		elif isinstance(other, int):
 			return Timecode(self.framenumber - other, self.rate, self.mode)
+		elif isinstance(other, str):
+			return self - Timecode(other, self.rate, self.mode)
 		else:
 			raise IncompatibleTimecode("Timecodes must share frame rates and drop frame modes")
 	
