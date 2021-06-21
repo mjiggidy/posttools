@@ -40,6 +40,12 @@ class TestInstantiation(unittest.TestCase):
 		rate = 24
 		mode = Timecode.Mode.NDF
 		self.assertTrue(Timecode("01:00:00:00", rate, mode) < Timecode("01:00:10:00", rate, mode))
+
+class TestTimecodeFormatting(unittest.TestCase):
+
+	def test_24_onehour(self):
+		tc = Timecode("01:00:00:00")
+		self.assertEqual(str(tc), "01:00:00:00")
 	
 class TestTimecodeRange(unittest.TestCase):
 
@@ -63,6 +69,13 @@ class TestTimecodeRange(unittest.TestCase):
 		mode = Timecode.Mode.NDF
 		range_large = TimecodeRange(Timecode("01:00:00:00", rate, mode), Timecode("01:10:00:00", rate, mode))
 		self.assertTrue(range_large in range_large)
+	
+	def test_timecode_inplace_math(self):
+		#rate = 24
+		#mode = Timecode.Mode.NDF
+		tc_base = Timecode("01:00:00:00")
+		tc_base+=1
+		self.assertEqual(tc_base, Timecode("01:00:00:01"))
 	
 
 

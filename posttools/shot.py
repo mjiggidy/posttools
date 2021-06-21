@@ -68,7 +68,7 @@ class Shot(abc.ABC):
 class Masterclip(Shot):
 	"""A shot"""
 
-	def __init__(self, name:str, timecode:TimecodeRange, metadata:typing.Union[Metadata,None]=None):
+	def __init__(self, name:str, timecode:TimecodeRange, metadata:typing.Optional[Metadata]=None):
 
 		self._name = name
 		self._timecode = timecode
