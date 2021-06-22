@@ -14,14 +14,9 @@ class Timecode:
 	class Mode(enum.Enum):
 		NDF = 1
 		DF  = 2
-
-		# TODO: Investigate a better way
-		def __str__(self):
-			if self == self.NDF: return "NDF"
-			else: return "DF"
 	
 	def __init__(self, timecode:typing.Union[int,str], rate:typing.Union[int,float]=24, mode:typing.Optional[Mode]=Mode.NDF):
-
+		"""Timecode for video, audio or data"""
 		# Parse rate
 		self._rate = round(rate)
 
@@ -181,11 +176,29 @@ class Timecode:
 		"""Is timecode positive"""
 		return not self.is_negative
 	
+	# Utility methods
+	def convert(self, rate:typing.Union[int,float,None]=None, mode:typing.Optional[Mode]=None) -> "Timecode":
+		"""Resample timecode to a new rate/mode"""
+		new_rate = rate or self._rate
+		new_mode = mode or self._mode
+
+		if new_rate == self._rate and new_mode == self._mode:
+			return self
+
+		# TODO: Figure out the dropframe element of this
+		if self._mode == self.Mode.DF or new_mode == self.Mode.DF:
+			raise NotImplementedError("Working on DF")
+		
+		factor = new_rate / self._rate
+		return Timecode(round(self._framenumber * factor), new_rate, new_mode)
+
+
+	
 	def __str__(self):
 		return self.formatted
 
 	def __repr__(self):
-		return f"<{self.__class__.__name__} {str(self)} @ {self._rate}fps {self._mode}>"
+		return f"<{self.__class__.__name__} {str(self)} @ {self._rate}fps {self._mode.name}>"
 
 	def is_compatible(self, other) -> bool:
 		return isinstance(other, self.__class__) and self.mode == other.mode and self.rate == other.rate
@@ -234,7 +247,8 @@ class Timecode:
 class TimecodeRange:
 	"""Timecode range with start, end, and duration"""
 
-	def __init__(self, start:Timecode, end:typing.Optional[Timecode]=None, duration:typing.Optional[Timecode]=None):
+	def __init__(self, *, start:Timecode, end:typing.Optional[Timecode]=None, duration:typing.Optional[Timecode]=None):
+		"""Timecode range with start, end, and duration"""
 		self._start = start
 		
 		if isinstance(end, Timecode):
