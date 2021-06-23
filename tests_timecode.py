@@ -105,6 +105,17 @@ class TestTimecodeMath(unittest.TestCase):
 		self.assertEqual(Timecode("12:12:15:12") + Timecode("12:15:15",30), Timecode("12:24:31:00"))
 		self.assertEqual(Timecode("12:12:15:15",30) + Timecode("12:15:12",24), Timecode("12:24:31:00",30))
 	
+	def test_mult_Timecode(self):
+		self.assertEqual(Timecode("18:00:00:00") * 0, 0)
+		self.assertEqual(Timecode("12:00:00:00") * 2, Timecode("24:00:00:00"))
+		self.assertEqual(Timecode("18:24:18:23") * -1, Timecode("-18:24:18:23"))
+	
+	def test_div_Timecode(self):
+		self.assertEqual(Timecode("24:00:00:00") / 2, Timecode("12:00:00:00"))
+		self.assertEqual(Timecode("24:00:00:00") / Timecode("12:00:00:00"), Timecode("02"))
+		self.assertEqual(Timecode("24:00:00:00") / Timecode("12:00:00:00") * Timecode("12:00:00:00"), Timecode("24:00:00:00"))
+		self.assertEqual(Timecode("24:00:00:00") / Timecode("12:00:00:00", 30), Timecode("02"))
+	
 	def test_equality(self):
 		self.assertTrue(Timecode("12:12:12:12") == Timecode("12:12:12:12"))
 		self.assertFalse(Timecode("12:12:12:12") == Timecode("12:12:12:13"))
