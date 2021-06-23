@@ -234,7 +234,6 @@ class Timecode:
 		# Enjoy the InvalidTimecode exception if this doesn't work
 		return Timecode(other, self._rate, self._mode)
 
-	
 	def __add__(self, other:typing.Any) -> "Timecode":
 		"""Adds a timecode
 
