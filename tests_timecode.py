@@ -59,26 +59,26 @@ class TestTimecodeConversions(unittest.TestCase):
 
 	def test_24_to_30(self):
 		tc = Timecode("01:00:00:00")
-		new_tc = tc.convert(rate=30)
+		new_tc = tc.resample(rate=30)
 		self.assertEqual(new_tc, Timecode("01:00:00:00", 30))
 		self.assertEqual(new_tc.rate, 30)
 		self.assertNotEqual(new_tc.framenumber, 86400)
 		self.assertEqual(new_tc - 1, Timecode("59:59:29", 30))
 
 		tc = Timecode("22:16:43:13")
-		new_tc = tc.convert(rate=30)
+		new_tc = tc.resample(rate=30)
 		self.assertEqual(new_tc, Timecode("22:16:43:16", 30))
 
 	def test_30_to_24(self):
 		tc = Timecode("01:00:00:00", 30)
-		new_tc = tc.convert(rate=24)
+		new_tc = tc.resample(rate=24)
 		self.assertEqual(new_tc, Timecode("01:00:00:00", 24))
 		self.assertEqual(new_tc.framenumber, 86400)
 		self.assertEqual(new_tc - 1, Timecode("59:59:23"))
 	
 	def test_30_to_30(self):
 		tc = Timecode("01:00:00:00", 30)
-		new_tc = tc.convert(rate=30)
+		new_tc = tc.resample(rate=30)
 		self.assertIs(tc, new_tc)	# Confirm passthrough
 
 	def test_24_to_30DF(self):
