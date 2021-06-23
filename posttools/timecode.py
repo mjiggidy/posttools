@@ -26,6 +26,7 @@ class Timecode:
 		# Parse timecode
 		if isinstance(timecode, str):
 			self._framenumber = self._setFromString(timecode)
+			self._framenumber -= self._df_offset()
 		elif isinstance(timecode, int):
 			self._framenumber = timecode
 		else:
@@ -38,8 +39,6 @@ class Timecode:
 	def _setFromString(self, timecode:str):
 		"""Frame number from string format: +hh:mm:ss:ff"""
 
-		if self._mode == self.Mode.DF:
-			raise NotImplementedError("Parsing NDF timecode from string is not yet supported")
 
 		match = self.pat_tc.match(timecode)
 		if not match:
@@ -78,11 +77,11 @@ class Timecode:
 		if self._mode == self.Mode.DF and self._rate % 30:
 			raise InvalidTimecode("Drop-frame mode only valid for rates divisible by 30")
 	
-	@property
-	def _df_offset(self) -> int:
+	
+	def _df_offset(self, force_offset:bool=False) -> int:
 		"""Calculate frame offset for drop frame"""
 		
-		if self._mode != self.Mode.DF:
+		if self._mode != self.Mode.DF and force_offset != True:
 			return 0
 
 		framenumber_normalized = abs(self._framenumber)
@@ -131,7 +130,7 @@ class Timecode:
 		
 		sign = '-' if self._framenumber < 0 else ''
 		separator = ';' if self._mode == self.Mode.DF else ':'
-		df_offset = self._df_offset
+		df_offset = self._df_offset()
 
 		return f"{sign}{abs(self.hours):02d}:{abs(self.minutes):02d}:{abs(self.seconds):02d}{separator}{abs(self.frames):02d}"
 
@@ -145,25 +144,25 @@ class Timecode:
 	def frames(self, df_offset:int=None) -> int:
 		"""Timcode frame number"""
 		# TODO: I don't think I can do this df_offset thing with a @property
-		df_offset = df_offset or self._df_offset
+		df_offset = df_offset or self._df_offset()
 		return int((self._framenumber + df_offset) % self._rate)
 	
 	@property
 	def seconds(self, df_offset:int=None) -> int:
 		"""Timecode seconds"""
-		df_offset = df_offset or self._df_offset
+		df_offset = df_offset or self._df_offset()
 		return int((self._framenumber + df_offset) / self._rate % 60)
 	
 	@property
 	def minutes(self, df_offset:int=None) -> int:
 		"""Timecode minutes"""
-		df_offset = df_offset or self._df_offset
+		df_offset = df_offset or self._df_offset()
 		return int((self._framenumber + df_offset) / self._rate / 60 % 60)
 	
 	@property
 	def hours(self, df_offset:int=None) -> int:
 		"""Timecode hours"""
-		df_offset = df_offset or self._df_offset
+		df_offset = df_offset or self._df_offset()
 		return int((self._framenumber + df_offset) / self._rate / 60 / 60)
 	
 	@property
@@ -185,12 +184,29 @@ class Timecode:
 		if new_rate == self._rate and new_mode == self._mode:
 			return self
 
-		# TODO: Figure out the dropframe element of this
-		if self._mode == self.Mode.DF or new_mode == self.Mode.DF:
-			raise NotImplementedError("Working on DF")
-		
 		factor = new_rate / self._rate
-		return Timecode(round(self._framenumber * factor), new_rate, new_mode)
+
+		# For drop-frame conversions, apply or remove the dropped frame offset
+
+
+		"""
+		if self._mode == self.Mode.DF and new_mode == self.Mode.NDF:
+			df_offset = self._df_offset()
+			old_framenumber = self._framenumber + df_offset
+
+		elif self._mode == self.Mode.NDF and new_mode == self.Mode.DF:
+			df_offset = self._df_offset(True)
+			print(df_offset)
+			old_framenumber = self._framenumber - df_offset
+		"""
+		if self._mode == self.Mode.DF or new_mode == self.Mode.DF:
+			raise NotImplementedError("No DF not yet too hard")
+			
+		else:
+			old_framenumber = self._framenumber
+			
+		
+		return Timecode(round(old_framenumber * factor), new_rate, new_mode)
 
 
 	

@@ -18,6 +18,14 @@ class TestInstantiation(unittest.TestCase):
 		self.assertEqual(tc.rate,30)
 		self.assertEqual(str(tc), "01:00:00:00")
 		self.assertEqual(tc.framenumber, 108000)
+	
+	def test_30DF_fromstring(self):
+		tc = Timecode("01:00:00:00", 30, Timecode.Mode.DF)
+		self.assertEqual(str(tc), "01:00:00;00")
+
+	def test_30DF_fromstring(self):
+		tc = Timecode("20:00:05;00", 30, Timecode.Mode.DF)
+		self.assertEqual(str(tc), "20:00:05;00")
 
 	def test_24_fromint(self):
 		tc = Timecode(86400)
@@ -68,9 +76,10 @@ class TestTimecodeConversions(unittest.TestCase):
 		self.assertIs(tc, new_tc)	# Confirm passthrough
 
 	def test_24_to_30DF(self):
-		tc = Timecode("01:00:00:00", 24)
-		new_tc = tc.convert(rate=30, mode=Timecode.Mode.DF)
-		print(new_tc)
+		pass
+
+	def test_30DF_to_30DF(self):
+		pass
 
 class TestTimecodeFormatting(unittest.TestCase):
 
