@@ -11,7 +11,7 @@ class Timecode:
 
 	pat_tc = re.compile(r"^([\+\-])?((?:[:;]?\d+){1,4})$")
 	
-	class Mode(enum.Enum):
+	class Mode(enum.IntEnum):
 		NDF = 1
 		DF  = 2
 	
@@ -26,7 +26,7 @@ class Timecode:
 		# Parse timecode
 		if isinstance(timecode, str):
 			self._framenumber = self._setFromString(timecode)
-			self._framenumber -= self._df_offset()
+			#if self.mode is self.Mode.DF: self._framenumber -= round(self._framenumber * 0.06666)
 		elif isinstance(timecode, int):
 			self._framenumber = timecode
 		else:
@@ -76,7 +76,8 @@ class Timecode:
 		# Mode check
 		if self._mode == self.Mode.DF and self._rate % 30:
 			raise InvalidTimecode("Drop-frame mode only valid for rates divisible by 30")
-	
+
+
 	
 	def _df_offset(self, force_offset:bool=False) -> int:
 		"""Calculate frame offset for drop frame"""
@@ -141,26 +142,26 @@ class Timecode:
 		return self._mode
 	
 	@property
-	def frames(self, df_offset:int=None) -> int:
+	def frames(self, df_offset:typing.Optional[int]=None) -> int:
 		"""Timcode frame number"""
 		# TODO: I don't think I can do this df_offset thing with a @property
 		df_offset = df_offset or self._df_offset()
 		return int((self._framenumber + df_offset) % self._rate)
 	
 	@property
-	def seconds(self, df_offset:int=None) -> int:
+	def seconds(self, df_offset:typing.Optional[int]=None) -> int:
 		"""Timecode seconds"""
 		df_offset = df_offset or self._df_offset()
 		return int((self._framenumber + df_offset) / self._rate % 60)
 	
 	@property
-	def minutes(self, df_offset:int=None) -> int:
+	def minutes(self, df_offset:typing.Optional[int]=None) -> int:
 		"""Timecode minutes"""
 		df_offset = df_offset or self._df_offset()
 		return int((self._framenumber + df_offset) / self._rate / 60 % 60)
 	
 	@property
-	def hours(self, df_offset:int=None) -> int:
+	def hours(self, df_offset:typing.Optional[int]=None) -> int:
 		"""Timecode hours"""
 		df_offset = df_offset or self._df_offset()
 		return int((self._framenumber + df_offset) / self._rate / 60 / 60)
@@ -199,6 +200,7 @@ class Timecode:
 			print(df_offset)
 			old_framenumber = self._framenumber - df_offset
 		"""
+
 		if self._mode == self.Mode.DF or new_mode == self.Mode.DF:
 			raise NotImplementedError("No DF not yet too hard")
 			
@@ -216,48 +218,76 @@ class Timecode:
 	def __repr__(self):
 		return f"<{self.__class__.__name__} {str(self)} @ {self._rate}fps {self._mode.name}>"
 
-	def is_compatible(self, other) -> bool:
+	def _is_compatible(self, other) -> bool:
 		return isinstance(other, self.__class__) and self.mode == other.mode and self.rate == other.rate
+	
+	def _cmp_normalize(self, other:typing.Any) -> "Timecode":
+		"""Normalize addend for math comparisons"""
+		
+		if isinstance(other, Timecode):
+			return other
+		
+		# Attempt to create a new Timecode object with matching rate and mode
+		# Enjoy the InvalidTimecode exception if this doesn't work
+		return Timecode(other, self._rate, self._mode)
+
 	
 	def __add__(self, other):
 		"""Add two compatible timecodes"""
-		if self.is_compatible(other):
-			return Timecode(self.framenumber + other.framenumber, self.rate, self.mode)
-		elif isinstance(other, str):
-			return self +  Timecode(other, self.rate, self.mode)
-		elif isinstance(other, int):
-			return Timecode(self.framenumber + other, self.rate, self.mode)
-		else:
-			raise IncompatibleTimecode("Timecodes must share frame rates and drop frame modes")
+		other = self._cmp_normalize(other).convert(self._rate, self._mode)
+		return Timecode(self._framenumber + other._framenumber, self._rate, self._mode)
 
 	def __sub__(self, other):
 		"""Subtract two compatible timecodes"""
-		if self.is_compatible(other):
-			return Timecode(self.framenumber - other.framenumber, self.rate, self.mode)
-		elif isinstance(other, int):
-			return Timecode(self.framenumber - other, self.rate, self.mode)
-		elif isinstance(other, str):
-			return self - Timecode(other, self.rate, self.mode)
-		else:
-			raise IncompatibleTimecode("Timecodes must share frame rates and drop frame modes")
-	
+		other = self._cmp_normalize(other).convert(self._rate, self._mode)
+		return Timecode(self._framenumber - other._framenumber, self._rate, self._mode)
+
 	def __eq__(self, other) -> bool:
-		"""Confirm two timecodes are equal"""
-		return self.is_compatible(other) and self.framenumber == other.framenumber
+		"""Confirm two timecodes are equal in frame, rate, and mode"""
+		other = self._cmp_normalize(other)
+		return self._is_compatible(other) and self._framenumber == other._framenumber
 	
 	def __lt__(self, other) -> bool:
 		"""Confirm timecode is less than another"""
-		return self.is_compatible(other) and self.framenumber < other.framenumber
+		other = self._cmp_normalize(other)
+
+		if self._mode != other._mode:
+			return self._mode < other._mode
+		elif self._rate != other._rate:
+			return self._rate < other._rate
+		else:
+			return self._framenumber < other._framenumber
 
 	def __gt__(self, other) -> bool:
 		"""Confirm timecode is greater than another"""
-		return self.is_compatible(other) and self.framenumber > other.framenumber
+		other = self._cmp_normalize(other)
+
+		if self._mode != other._mode:
+			return self._mode > other._mode
+		elif self._rate != other._rate:
+			return self._rate > other._rate
+		else:
+			return self._framenumber > other._framenumber
 	
 	def __le__(self, other) -> bool:
-		return self.is_compatible(other) and self.framenumber <= other.framenumber
+		other = self._cmp_normalize(other)
+		if self._mode > other._mode:
+			return False
+		elif self._rate > other._rate:
+			return False
+		else:
+			return self._framenumber <= other._framenumber
 	
 	def __ge__(self, other) -> bool:
-		return self.is_compatible(other) and self.framenumber >= other.framenumber
+		if self._mode < other._mode:
+			return False
+		elif self._rate < other._rate:
+			return False
+		else:
+			return self._framenumber >= other._framenumber
+	
+	def __hash__(self):
+		return hash((self._framenumber, self._rate, self._mode))
 
 
 class TimecodeRange:
@@ -311,13 +341,13 @@ class TimecodeRange:
 		return self._start.rate
 
 	def __eq__(self, other) -> bool:
-		return self.start.is_compatible(other.start) and self.start.framenumber == other.start.framenumber and self.duration.framenumber == other.duration.framenumber
+		return self.start._is_compatible(other.start) and self.start.framenumber == other.start.framenumber and self.duration.framenumber == other.duration.framenumber
 	
 	def __lt__(self,  other) -> bool:
-		return self.start.is_compatible(other.start) and self.start < other.start
+		return self.start._is_compatible(other.start) and self.start < other.start
 
 	def __gt__(self,  other) -> bool:
-		return self.start.is_compatible(other.start) and self.start > other.start
+		return self.start._is_compatible(other.start) and self.start > other.start
 	
 	def __contains__(self, other) -> bool:
 		return self.start <= other.start and self.end >= other.end
