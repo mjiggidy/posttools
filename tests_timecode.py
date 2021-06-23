@@ -59,26 +59,26 @@ class TestTimecodeConversions(unittest.TestCase):
 
 	def test_24_to_30(self):
 		tc = Timecode("01:00:00:00")
-		new_tc = tc.convert(rate=30)
+		new_tc = tc.resample(rate=30)
 		self.assertEqual(new_tc, Timecode("01:00:00:00", 30))
 		self.assertEqual(new_tc.rate, 30)
 		self.assertNotEqual(new_tc.framenumber, 86400)
 		self.assertEqual(new_tc - 1, Timecode("59:59:29", 30))
 
 		tc = Timecode("22:16:43:13")
-		new_tc = tc.convert(rate=30)
+		new_tc = tc.resample(rate=30)
 		self.assertEqual(new_tc, Timecode("22:16:43:16", 30))
 
 	def test_30_to_24(self):
 		tc = Timecode("01:00:00:00", 30)
-		new_tc = tc.convert(rate=24)
+		new_tc = tc.resample(rate=24)
 		self.assertEqual(new_tc, Timecode("01:00:00:00", 24))
 		self.assertEqual(new_tc.framenumber, 86400)
 		self.assertEqual(new_tc - 1, Timecode("59:59:23"))
 	
 	def test_30_to_30(self):
 		tc = Timecode("01:00:00:00", 30)
-		new_tc = tc.convert(rate=30)
+		new_tc = tc.resample(rate=30)
 		self.assertIs(tc, new_tc)	# Confirm passthrough
 
 	def test_24_to_30DF(self):
@@ -104,6 +104,17 @@ class TestTimecodeMath(unittest.TestCase):
 		self.assertEqual(Timecode("12:00:00:00") + Timecode("12:00:00:00"), Timecode("24:00:00:00"))
 		self.assertEqual(Timecode("12:12:15:12") + Timecode("12:15:15",30), Timecode("12:24:31:00"))
 		self.assertEqual(Timecode("12:12:15:15",30) + Timecode("12:15:12",24), Timecode("12:24:31:00",30))
+	
+	def test_mult_Timecode(self):
+		self.assertEqual(Timecode("18:00:00:00") * 0, 0)
+		self.assertEqual(Timecode("12:00:00:00") * 2, Timecode("24:00:00:00"))
+		self.assertEqual(Timecode("18:24:18:23") * -1, Timecode("-18:24:18:23"))
+	
+	def test_div_Timecode(self):
+		self.assertEqual(Timecode("24:00:00:00") / 2, Timecode("12:00:00:00"))
+		self.assertEqual(Timecode("24:00:00:00") / Timecode("12:00:00:00"), Timecode("02"))
+		self.assertEqual(Timecode("24:00:00:00") / Timecode("12:00:00:00") * Timecode("12:00:00:00"), Timecode("24:00:00:00"))
+		self.assertEqual(Timecode("24:00:00:00") / Timecode("12:00:00:00", 30), Timecode("02"))
 	
 	def test_equality(self):
 		self.assertTrue(Timecode("12:12:12:12") == Timecode("12:12:12:12"))
