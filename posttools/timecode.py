@@ -175,7 +175,7 @@ class Timecode:
 		return not self.is_negative
 	
 	# Utility methods
-	def convert(self, rate:typing.Union[int,float,None]=None, mode:typing.Optional[Mode]=None) -> "Timecode":
+	def resample(self, rate:typing.Union[int,float,None]=None, mode:typing.Optional[Mode]=None) -> "Timecode":
 		"""Resample timecode to a new rate/mode"""
 		new_rate = rate or self._rate
 		new_mode = mode or self._mode
@@ -230,14 +230,20 @@ class Timecode:
 		return Timecode(other, self._rate, self._mode)
 
 	
-	def __add__(self, other):
-		"""Add two compatible timecodes"""
-		other = self._cmp_normalize(other).convert(self._rate, self._mode)
+	def __add__(self, other:typing.Any) -> "Timecode":
+		"""Adds a timecode
+
+		If the second addend is of a different rate or mode, it will be converted to the same as the first addend.
+		"""
+		other = self._cmp_normalize(other).resample(self._rate, self._mode)
 		return Timecode(self._framenumber + other._framenumber, self._rate, self._mode)
 
-	def __sub__(self, other):
-		"""Subtract two compatible timecodes"""
-		other = self._cmp_normalize(other).convert(self._rate, self._mode)
+	def __sub__(self, other) -> "Timecode":
+		"""Subtracts a timecode
+
+		If the subtrahend is of a different rate or mode, it will be converted to the same as the minuend.
+		"""
+		other = self._cmp_normalize(other).resample(self._rate, self._mode)
 		return Timecode(self._framenumber - other._framenumber, self._rate, self._mode)
 
 	def __eq__(self, other) -> bool:
@@ -246,7 +252,10 @@ class Timecode:
 		return self._is_compatible(other) and self._framenumber == other._framenumber
 	
 	def __lt__(self, other) -> bool:
-		"""Confirm timecode is less than another"""
+		"""Confirm this timecode is less than another
+		
+		Precedence: NDF < DF; frame rate; frame number
+		"""
 		other = self._cmp_normalize(other)
 
 		if self._mode != other._mode:
@@ -257,7 +266,10 @@ class Timecode:
 			return self._framenumber < other._framenumber
 
 	def __gt__(self, other) -> bool:
-		"""Confirm timecode is greater than another"""
+		"""Confirm this timecode is greater than another
+		
+		Precedence: DF > NDF; frame rate; frame number
+		"""
 		other = self._cmp_normalize(other)
 
 		if self._mode != other._mode:
@@ -268,6 +280,10 @@ class Timecode:
 			return self._framenumber > other._framenumber
 	
 	def __le__(self, other) -> bool:
+		"""Confirm this timecode is less than or equal to another
+		
+		Precedence: NDF < DF; frame rate; frame number
+		"""
 		other = self._cmp_normalize(other)
 		if self._mode > other._mode:
 			return False
@@ -277,6 +293,10 @@ class Timecode:
 			return self._framenumber <= other._framenumber
 	
 	def __ge__(self, other) -> bool:
+		"""Confirm this timecode is greater than or equal to another
+		
+		Precedence: DF > NDF; frame rate; frame number
+		"""
 		if self._mode < other._mode:
 			return False
 		elif self._rate < other._rate:
@@ -284,7 +304,8 @@ class Timecode:
 		else:
 			return self._framenumber >= other._framenumber
 	
-	def __hash__(self):
+	def __hash__(self) -> int:
+		"""Create a unique hash for this timecode"""
 		return hash((self._framenumber, self._rate, self._mode))
 
 
