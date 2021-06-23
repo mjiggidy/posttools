@@ -77,8 +77,6 @@ class Timecode:
 		if self._mode == self.Mode.DF and self._rate % 30:
 			raise InvalidTimecode("Drop-frame mode only valid for rates divisible by 30")
 
-
-	
 	def _df_offset(self, force_offset:bool=False) -> int:
 		"""Calculate frame offset for drop frame"""
 		

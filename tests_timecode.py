@@ -154,7 +154,6 @@ class TestTimecodeMath(unittest.TestCase):
 		self.assertEqual(sorted(timecodes), timecodes_sorted)
 		self.assertEqual(len(set(timecodes)), 8)
 
-
 class TestTimecodeFormatting(unittest.TestCase):
 
 	def test_24_onehour(self):

@@ -66,9 +66,10 @@ class Shot(abc.ABC):
 
 
 class Masterclip(Shot):
-	"""A shot"""
+	"""A clip of original source material"""
 
 	def __init__(self, name:str, timecode:TimecodeRange, metadata:typing.Optional[Metadata]=None):
+		"""A clip of original source material"""
 
 		self._name = name
 		self._timecode = timecode
@@ -109,10 +110,11 @@ class Masterclip(Shot):
 		return f"<{self._name} {self._timecode.start}-{self._timecode.end}>"
 
 class Subclip(Shot):
-	"""Subclip of a shot"""
+	"""Subclip of a masterclip"""
 
 	def __init__(self, masterclip:Shot, timecode:TimecodeRange):
-
+		"""A subset of another masterclip or subclip"""
+		
 		# TODO: Maybe it's ok to just subclip a subclip and make its parent be a subclip
 		# Could do separate methods for "parent" clip as well as access to the ultimate "master" clip
 		# I don't know, man
