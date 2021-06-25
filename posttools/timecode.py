@@ -339,24 +339,24 @@ class TimecodeRange:
 		
 		if isinstance(start, Timecode) and isinstance(duration, Timecode):
 			if not start.is_compatible(duration):
-				raise ValueError("Start and duration timecodes must be of the same rate and mode")
+				raise IncompatibleTimecode("Start and duration timecodes must be of the same rate and mode")
 
 			if isinstance(end, Timecode) and end != (start+duration):
-				raise ValueError("End timecode does not agree with given start and duration")
+				raise IncompatibleTimecode("End timecode does not agree with given start and duration")
 				
 			self._start = start
 			self._duration = duration
 
 		elif isinstance(start, Timecode) and isinstance(end, Timecode):
 			if not start.is_compatible(end):
-				raise ValueError("Start and duration timecodes must be of the same rate and mode")
+				raise IncompatibleTimecode("Start and duration timecodes must be of the same rate and mode")
 
 			self._start = start
 			self._duration = end - start
 		
 		elif isinstance(duration, Timecode) and isinstance(end, Timecode):
 			if not duration.is_compatible(end):
-				raise ValueError("Start and duration timecodes must be of the same rate and mode")
+				raise IncompatibleTimecode("Start and duration timecodes must be of the same rate and mode")
 				
 			self._start = end - duration
 			self._duration = duration
@@ -366,7 +366,7 @@ class TimecodeRange:
 		
 		# Validate timecode compatibility
 		if self._duration < 1:
-			raise ValueError("End timecode must occur after start timecode")
+			raise IncompatibleTimecode("End timecode must occur after start timecode")
 		
 
 	@property

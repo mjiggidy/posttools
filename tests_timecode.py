@@ -182,18 +182,18 @@ class TestTimecodeRange(unittest.TestCase):
 		self.assertEqual(len(tr), len(list(tr)))
 	
 	def test_no_weirdo_ranges(self):
-		self.assertRaises(ValueError, lambda: TimecodeRange(start=Timecode("01:00:00:01"), end=Timecode("01:00:00:00")))
-		self.assertRaises(ValueError, lambda: TimecodeRange(start=Timecode("01:00:00:00"), end=Timecode("01:00:00:00")))
+		self.assertRaises(IncompatibleTimecode, lambda: TimecodeRange(start=Timecode("01:00:00:01"), end=Timecode("01:00:00:00")))
+		self.assertRaises(IncompatibleTimecode, lambda: TimecodeRange(start=Timecode("01:00:00:00"), end=Timecode("01:00:00:00")))
 		self.assertRaises(ValueError, lambda: TimecodeRange())
 		self.assertRaises(ValueError, lambda: TimecodeRange(start=Timecode("01:00:00:00")))
 		self.assertRaises(ValueError, lambda: TimecodeRange(end=Timecode("01:00:00:00")))
 		self.assertRaises(ValueError, lambda: TimecodeRange(duration=Timecode("01:00:00:00")))
-		self.assertRaises(ValueError, lambda: TimecodeRange(start=Timecode("34:42:32:22"), end=Timecode("02:00:00:00")))
+		self.assertRaises(IncompatibleTimecode, lambda: TimecodeRange(start=Timecode("34:42:32:22"), end=Timecode("02:00:00:00")))
 	
 	def test_mismatch_arguments(self):
 		self.assertEqual(TimecodeRange(start=Timecode("01:00:00:00"), duration=Timecode("0:00:05:00"), end=Timecode("01:00:05:00")).end, Timecode("01:00:05:00"))
-		self.assertRaises(ValueError, lambda: TimecodeRange(start=Timecode("01:00:00:00"), duration=Timecode("01:00:05:00"), end=Timecode("01:00:05:00")))
-		self.assertRaises(ValueError, lambda: TimecodeRange(start=Timecode("01:00:00:00"), duration=Timecode("05:00", 30)))
+		self.assertRaises(IncompatibleTimecode, lambda: TimecodeRange(start=Timecode("01:00:00:00"), duration=Timecode("01:00:05:00"), end=Timecode("01:00:05:00")))
+		self.assertRaises(IncompatibleTimecode, lambda: TimecodeRange(start=Timecode("01:00:00:00"), duration=Timecode("05:00", 30)))
 	
 	def test_subrange_in_range(self):
 		rate = 24
