@@ -179,6 +179,21 @@ class TestTimecodeRange(unittest.TestCase):
 			end=Timecode("01:01:00:00", 24, Timecode.Mode.NDF)
 		)
 		self.assertEqual(tr.duration.framenumber, Timecode("01:00:00", 24, Timecode.Mode.NDF).framenumber)
+		self.assertEqual(len(tr), len(list(tr)))
+	
+	def test_no_weirdo_ranges(self):
+		self.assertRaises(ValueError, lambda: TimecodeRange(start=Timecode("01:00:00:01"), end=Timecode("01:00:00:00")))
+		self.assertRaises(ValueError, lambda: TimecodeRange(start=Timecode("01:00:00:00"), end=Timecode("01:00:00:00")))
+		self.assertRaises(ValueError, lambda: TimecodeRange())
+		self.assertRaises(ValueError, lambda: TimecodeRange(start=Timecode("01:00:00:00")))
+		self.assertRaises(ValueError, lambda: TimecodeRange(end=Timecode("01:00:00:00")))
+		self.assertRaises(ValueError, lambda: TimecodeRange(duration=Timecode("01:00:00:00")))
+		self.assertRaises(ValueError, lambda: TimecodeRange(start=Timecode("34:42:32:22"), end=Timecode("02:00:00:00")))
+	
+	def test_mismatch_arguments(self):
+		self.assertEqual(TimecodeRange(start=Timecode("01:00:00:00"), duration=Timecode("0:00:05:00"), end=Timecode("01:00:05:00")).end, Timecode("01:00:05:00"))
+		self.assertRaises(ValueError, lambda: TimecodeRange(start=Timecode("01:00:00:00"), duration=Timecode("01:00:05:00"), end=Timecode("01:00:05:00")))
+		self.assertRaises(ValueError, lambda: TimecodeRange(start=Timecode("01:00:00:00"), duration=Timecode("05:00", 30)))
 	
 	def test_subrange_in_range(self):
 		rate = 24
@@ -194,14 +209,14 @@ class TestTimecodeRange(unittest.TestCase):
 		range_large = TimecodeRange(start=Timecode("01:00:00:00", rate, mode), end=Timecode("01:10:00:00", rate, mode))
 		self.assertTrue(range_large in range_large)
 	
-	def test_timecode_inplace_math(self):
-		#rate = 24
-		#mode = Timecode.Mode.NDF
-		tc_base = Timecode("01:00:00:00")
-		tc_base+=1
-		self.assertEqual(tc_base, Timecode("01:00:00:01"))
-	
-
+	def test_tc_in_range(self):
+		rate = 24
+		mode = Timecode.Mode.NDF
+		range_large = TimecodeRange(start=Timecode("01:00:00:00", rate, mode), end=Timecode("01:10:00:00", rate, mode))
+		self.assertTrue(Timecode("01:02:00:00", rate, mode) in range_large)
+		self.assertFalse(Timecode("00:59:59:23", rate, mode) in range_large)
+		self.assertFalse(Timecode("01:03:33:25", 30) in range_large)
+		self.assertFalse("poop" in range_large)
 
 if __name__ == "__main__":
 

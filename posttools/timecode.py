@@ -12,6 +12,7 @@ class Timecode:
 	pat_tc = re.compile(r"^([\+\-])?((?:[:;]?\d+){1,4})$")
 	
 	class Mode(enum.IntEnum):
+		"""Timecode frame counting mode (Dropframe / Non-Drop Frame)"""
 		NDF = 1
 		DF  = 2
 	
@@ -221,7 +222,8 @@ class Timecode:
 	def __repr__(self):
 		return f"<{self.__class__.__name__} {str(self)} @ {self._rate}fps {self._mode.name}>"
 
-	def _is_compatible(self, other:typing.Any) -> bool:
+	def is_compatible(self, other:"Timecode") -> bool:
+		"""Verify another timecode is of the same rate and mode"""
 		return isinstance(other, self.__class__) and self.mode == other.mode and self.rate == other.rate
 	
 	def _cmp_normalize(self, other:typing.Any) -> "Timecode":
@@ -269,7 +271,7 @@ class Timecode:
 	def __eq__(self, other:typing.Any) -> bool:
 		"""Confirm two timecodes are equal in frame, rate, and mode"""
 		other = self._cmp_normalize(other)
-		return self._is_compatible(other) and self._framenumber == other._framenumber
+		return self.is_compatible(other) and self._framenumber == other._framenumber
 	
 	def __lt__(self, other:typing.Any) -> bool:
 		"""Confirm this timecode is less than another
@@ -332,28 +334,41 @@ class Timecode:
 class TimecodeRange:
 	"""Timecode range with start, end, and duration"""
 
-	def __init__(self, *, start:Timecode, end:typing.Optional[Timecode]=None, duration:typing.Optional[Timecode]=None):
+	def __init__(self, *, start:typing.Optional[Timecode]=None, end:typing.Optional[Timecode]=None, duration:typing.Optional[Timecode]=None):
 		"""Timecode range with start, end, and duration"""
-		self._start = start
 		
-		if isinstance(end, Timecode):
-			self._duration = end - self._start
-		elif isinstance(duration, Timecode):
+		if isinstance(start, Timecode) and isinstance(duration, Timecode):
+			if not start.is_compatible(duration):
+				raise ValueError("Start and duration timecodes must be of the same rate and mode")
+
+			if isinstance(end, Timecode) and end != (start+duration):
+				raise ValueError("End timecode does not agree with given start and duration")
+				
+			self._start = start
 			self._duration = duration
+
+		elif isinstance(start, Timecode) and isinstance(end, Timecode):
+			if not start.is_compatible(end):
+				raise ValueError("Start and duration timecodes must be of the same rate and mode")
+
+			self._start = start
+			self._duration = end - start
+		
+		elif isinstance(duration, Timecode) and isinstance(end, Timecode):
+			if not duration.is_compatible(end):
+				raise ValueError("Start and duration timecodes must be of the same rate and mode")
+				
+			self._start = end - duration
+			self._duration = duration
+		
 		else:
-			raise ValueError("Must supply one of end or duration")
+			raise ValueError("Must supply two of start, end or duration")	
 		
 		# Validate timecode compatibility
-		if self._duration.is_negative:
+		if self._duration < 1:
 			raise ValueError("End timecode must occur after start timecode")
 		
-		if self._start.mode != self._duration.mode:
-			raise IncompatibleTimecode("Drop frame modes must match")
-		
-		if self._start.rate != self._duration.rate:
-			raise IncompatibleTimecode("Timecode rates must match")
-		
-	
+
 	@property
 	def start(self) -> Timecode:
 		"""Timecode start"""
@@ -370,34 +385,47 @@ class TimecodeRange:
 		return self._duration
 	
 	@property
+	def frames(self) -> int:
+		"""Number of frames in this range"""
+		return self.duration.framenumber
+	
+	@property
 	def mode(self) -> Timecode.Mode:
 		"""Drop frame mode"""
-		return self._start.mode
+		return self.start.mode
 	
 	@property
 	def rate(self) -> int:
 		"""Timecode rate"""
-		return self._start.rate
+		return self.start.rate
 
-	def __eq__(self, other) -> bool:
-		return self.start._is_compatible(other.start) and self.start.framenumber == other.start.framenumber and self.duration.framenumber == other.duration.framenumber
+	def __eq__(self, other:"TimecodeRange") -> bool:
+		return self.start == other.start and self.duration == other.duration if isinstance(other, TimecodeRange) else False
 	
 	def __lt__(self,  other) -> bool:
-		return self.start._is_compatible(other.start) and self.start < other.start
+		return self.start < other.start if isinstance(other, TimecodeRange) else False
 
 	def __gt__(self,  other) -> bool:
-		return self.start._is_compatible(other.start) and self.start > other.start
+		return self.start > other.start if isinstance(other, TimecodeRange) else False
 	
 	def __contains__(self, other) -> bool:
-		return self.start <= other.start and self.end >= other.end
+		if isinstance(other, TimecodeRange) and self.start.is_compatible(other.start):
+			return self.start <= other.start and self.end >= other.end
+		elif isinstance(other, Timecode) and self.start.is_compatible(other):
+			return self.start <= other <= self.end
+		else:
+			return False
 
 	def __repr__(self) -> str:
 		return f"<{self.__class__.__name__} {self}>"
 	
 	def __str__(self) -> str:
-		return f"{self.start}-{self.end} {self.rate}fps {self.mode}"
+		return f"{self.start}-{self.end} {self.rate}fps {self.mode.name}"
 	
 	def __iter__(self) -> Timecode:
 		for frame in range(self.start.framenumber, self.end.framenumber):
 			yield Timecode(frame, self.rate, self.mode)
+	
+	def __len__(self) -> int:
+		return self.frames
 	
