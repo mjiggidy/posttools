@@ -217,6 +217,11 @@ class TestTimecodeRange(unittest.TestCase):
 		self.assertFalse(Timecode("00:59:59:23", rate, mode) in range_large)
 		self.assertFalse(Timecode("01:03:33:25", 30) in range_large)
 		self.assertFalse("poop" in range_large)
+	
+	def test_resample_timecode_range(self):
+		range_orig = TimecodeRange(start=Timecode("01:00:00:00"), duration=Timecode("05:00:00"))
+		range_new = range_orig.resample(rate=30)
+		self.assertEqual(range_orig.duration, range_new.duration.formatted)
 
 if __name__ == "__main__":
 
