@@ -42,7 +42,7 @@ class Timecode:
 		self._validate()
 
 	
-	def _setFromString(self, timecode:str):
+	def _setFromString(self, timecode:str) -> int:
 		"""Frame number from string format: +hh:mm:ss:ff"""
 
 
@@ -216,10 +216,10 @@ class Timecode:
 
 
 	
-	def __str__(self):
+	def __str__(self) -> str:
 		return self.formatted
 
-	def __repr__(self):
+	def __repr__(self) -> str:
 		return f"<{self.__class__.__name__} {str(self)} @ {self._rate}fps {self._mode.name}>"
 
 	def is_compatible(self, other:"Timecode") -> bool:
@@ -368,6 +368,9 @@ class TimecodeRange:
 		if self._duration < 1:
 			raise IncompatibleTimecode("End timecode must occur after start timecode")
 		
+	def resample(self, rate:typing.Union[int,float,None]=None, mode:typing.Optional[Timecode.Mode]=None) -> "TimecodeRange":
+		"""Resample this timecode range to a new rate/mode"""
+		return TimecodeRange(start=self._start.resample(rate, mode), duration=self._duration.resample(rate, mode))
 
 	@property
 	def start(self) -> Timecode:
