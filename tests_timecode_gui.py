@@ -85,7 +85,7 @@ class TimecodeModel(QtCore.QAbstractItemModel):
 		self._timecodes.append(timecode)
 		self.endInsertRows()
 	
-	def populateTimecodes(self, count=500, start:int=0, end:int=86400, rates:typing.List=None, modes:typing.List=None):
+	def populateTimecodes(self, count=500, start:int=0, end:int=86400, rates:typing.List=None, modes:typing.List=None, continuous:bool=True):
 		"""Non-Qt Method"""
 		frame_start = min([start,end])
 		frame_end   = max([start, end])
@@ -95,12 +95,21 @@ class TimecodeModel(QtCore.QAbstractItemModel):
 		self.beginResetModel()
 		
 		self._timecodes = []
-		for _ in range(count):
-			frame = random.randint(frame_start, frame_end)
-			rate  = random.choice(rates)
-			mode  = random.choice(modes) if rate%30==0 else Timecode.Mode.NDF
+		
+		if not continuous:
+			for _ in range(count):
+				frame = random.randint(frame_start, frame_end)
+				rate  = random.choice(rates)
+				mode  = random.choice(modes) if rate%30==0 else Timecode.Mode.NDF
 
-			self._timecodes.append(Timecode(frame, rate, mode))
+				self._timecodes.append(Timecode(frame, rate, mode))
+		
+		else:
+			for rate in rates:
+				for mode in modes:
+					if rate % 30 and mode == Timecode.Mode.DF: continue
+					for frame in range(frame_start, frame_end):
+						self._timecodes.append(Timecode(frame, rate, mode))
 		
 		self.endResetModel()
 
@@ -122,13 +131,21 @@ class TimecodeTester(QtWidgets.QWidget):
 		
 		self.txt_frame_to   = QtWidgets.QLineEdit()
 		self.txt_frame_to.setValidator(QtGui.QIntValidator())
-		self.txt_frame_to.setText(str(864000))
+		self.txt_frame_to.setText(str(86400))
 		self.txt_frame_to.setMaximumWidth(50)
+
+		self.rad_continuous = QtWidgets.QRadioButton(text="Continuous")
+		self.rad_random     = QtWidgets.QRadioButton(text="Random Count:")
+		grp_range = QtWidgets.QButtonGroup(self)
+		grp_range.addButton(self.rad_continuous)
+		grp_range.addButton(self.rad_random)
 
 		self.txt_count		= QtWidgets.QLineEdit()
 		self.txt_count.setValidator(QtGui.QIntValidator(bottom=1))
 		self.txt_count.setText(str(20))
-		self.txt_count.setMaximumWidth(50)
+		self.txt_count.setMaximumWidth(35)
+		grp_range.buttonToggled.connect(lambda: self.txt_count.setEnabled(self.rad_random.isChecked()))
+		self.rad_continuous.setChecked(True)
 
 		self.chk_rate_24	= QtWidgets.QCheckBox(text="24")
 		self.chk_rate_24.setChecked(True)
@@ -149,18 +166,19 @@ class TimecodeTester(QtWidgets.QWidget):
 		grp_settings.layout().addWidget(self.txt_frame_to)
 
 		grp_settings.layout().addStretch()
-		grp_settings.layout().addWidget(QtWidgets.QLabel("Count:"))
+		grp_settings.layout().addWidget(self.rad_continuous)
+		grp_settings.layout().addWidget(self.rad_random)
 		grp_settings.layout().addWidget(self.txt_count)
 		
 		grp_settings.layout().addStretch()
-		grp_settings.layout().addWidget(QtWidgets.QLabel(text="Frame Rates:"))
+		grp_settings.layout().addWidget(QtWidgets.QLabel(text="Rates:"))
 		grp_settings.layout().addWidget(self.chk_rate_24)
 		grp_settings.layout().addWidget(self.chk_rate_30)
 		grp_settings.layout().addWidget(self.chk_rate_48)
 		grp_settings.layout().addWidget(self.chk_rate_60)
 
 		grp_settings.layout().addStretch()
-		grp_settings.layout().addWidget(QtWidgets.QLabel(text="Frame Modes:"))
+		grp_settings.layout().addWidget(QtWidgets.QLabel(text="Modes:"))
 		grp_settings.layout().addWidget(self.chk_mode_ndf)
 		grp_settings.layout().addWidget(self.chk_mode_df)
 
@@ -174,8 +192,15 @@ class TimecodeTester(QtWidgets.QWidget):
 		self.tree_timecodes.setSortingEnabled(True)
 		self.tree_timecodes.setAlternatingRowColors(True)
 		self.tree_timecodes.setIndentation(0)
+		self.tree_timecodes.setUniformRowHeights(True)
 		self.tree_timecodes.sortByColumn(0, QtCore.Qt.AscendingOrder)
 		self.layout().addWidget(self.tree_timecodes)
+
+		creds = QtWidgets.QHBoxLayout()
+		creds.addWidget(QtWidgets.QLabel("Timecode Tester by Michael Jordan"))
+		creds.addStretch()
+		creds.addWidget(QtWidgets.QLabel("<a href=\"https://github.com/mjiggidy/posttools/\">https://github.com/mjiggidy/posttools/</a>"))
+		self.layout().addLayout(creds)
 	
 	def setTimecodeModel(self, model:QtCore.QAbstractItemModel):
 		self.tree_timecodes.setModel(model)
@@ -183,7 +208,7 @@ class TimecodeTester(QtWidgets.QWidget):
 	
 	def populateModel(self):
 		range_start = int(self.txt_frame_from.text()) if self.txt_frame_from.text() else 0
-		range_end = int(self.txt_frame_to.text()) if self.txt_frame_to.text() else 864000
+		range_end = int(self.txt_frame_to.text()) if self.txt_frame_to.text() else max(range_start, 86400)
 		count = int(self.txt_count.text()) if self.txt_count.text() and int(self.txt_count.text()) != 0 else 1
 
 		rates = []
@@ -196,7 +221,9 @@ class TimecodeTester(QtWidgets.QWidget):
 		if self.chk_mode_df.isChecked(): modes.append(Timecode.Mode.DF)
 		if self.chk_mode_ndf.isChecked(): modes.append(Timecode.Mode.NDF)
 
-		self.tree_timecodes.model().populateTimecodes(count=count, start=range_start, end=range_end, rates=rates, modes=modes)
+		random = self.rad_continuous.isChecked()
+
+		self.tree_timecodes.model().populateTimecodes(count=count, start=range_start, end=range_end, rates=rates, modes=modes, continuous=random)
 		self.tree_timecodes.sortByColumn(0, QtCore.Qt.AscendingOrder)
 		
 
