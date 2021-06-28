@@ -117,23 +117,29 @@ class TimecodeTester(QtWidgets.QWidget):
 
 		self.txt_frame_from = QtWidgets.QLineEdit()
 		self.txt_frame_from.setValidator(QtGui.QIntValidator())
+		self.txt_frame_from.setText(str(0))
 		self.txt_frame_from.setMaximumWidth(50)
 		
 		self.txt_frame_to   = QtWidgets.QLineEdit()
 		self.txt_frame_to.setValidator(QtGui.QIntValidator())
+		self.txt_frame_to.setText(str(864000))
 		self.txt_frame_to.setMaximumWidth(50)
 
 		self.txt_count		= QtWidgets.QLineEdit()
 		self.txt_count.setValidator(QtGui.QIntValidator(bottom=1))
+		self.txt_count.setText(str(20))
 		self.txt_count.setMaximumWidth(50)
 
 		self.chk_rate_24	= QtWidgets.QCheckBox(text="24")
+		self.chk_rate_24.setChecked(True)
+
 		self.chk_rate_30	= QtWidgets.QCheckBox(text="30")
 		self.chk_rate_48	= QtWidgets.QCheckBox(text="48")
 		self.chk_rate_60	= QtWidgets.QCheckBox(text="60")
 
 		self.chk_mode_ndf	= QtWidgets.QCheckBox(text="NDF")
 		self.chk_mode_df	= QtWidgets.QCheckBox(text="DF")
+		self.chk_mode_ndf.setChecked(True)
 
 		self.btn_generate   = QtWidgets.QPushButton(text="Generate", clicked=self.populateModel)
 		
@@ -173,6 +179,7 @@ class TimecodeTester(QtWidgets.QWidget):
 	
 	def setTimecodeModel(self, model:QtCore.QAbstractItemModel):
 		self.tree_timecodes.setModel(model)
+		self.populateModel()
 	
 	def populateModel(self):
 		range_start = int(self.txt_frame_from.text()) if self.txt_frame_from.text() else 0
@@ -200,9 +207,7 @@ class TimecodeWindow(QtWidgets.QMainWindow):
 		self.setWindowTitle("Timecode Tester")
 		
 		model_tc = TimecodeModel()
-		model_tc.populateTimecodes()
 		
-
 		widget_tcteser = TimecodeTester()
 		widget_tcteser.setTimecodeModel(model_tc)
 		
