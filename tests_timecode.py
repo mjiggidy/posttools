@@ -49,6 +49,10 @@ class TestInstantiation(unittest.TestCase):
 		self.assertEqual(str(tc), "-01:00:00:00")
 		self.assertEqual(tc.mode, Timecode.Mode.NDF)
 		self.assertEqual(tc.hours, -1)
+
+	def test_24_small_neg(self):
+		tc = Timecode(-1)
+		self.assertEqual(str(tc), "-00:00:00:01")
 	
 	def test_lt_true(self):
 		rate = 24
