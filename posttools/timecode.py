@@ -150,25 +150,29 @@ class Timecode:
 		"""Timcode frame number"""
 		# TODO: I don't think I can do this df_offset thing with a @property
 		df_offset = df_offset or self._df_offset()
-		return int((self._framenumber + df_offset) % self._rate)
+		framenumber = abs(self._framenumber)
+		return int((framenumber + df_offset) % self._rate) * (-1 if self.is_negative else 1)
 	
 	@property
 	def seconds(self, df_offset:typing.Optional[int]=None) -> int:
 		"""Timecode seconds"""
 		df_offset = df_offset or self._df_offset()
-		return int((self._framenumber + df_offset) / self._rate % 60)
+		framenumber = abs(self._framenumber)
+		return int((framenumber + df_offset) / self._rate % 60)* (-1 if self.is_negative else 1)
 	
 	@property
 	def minutes(self, df_offset:typing.Optional[int]=None) -> int:
 		"""Timecode minutes"""
 		df_offset = df_offset or self._df_offset()
-		return int((self._framenumber + df_offset) / self._rate / 60 % 60)
+		framenumber = abs(self._framenumber)
+		return int((framenumber + df_offset) / self._rate / 60 % 60) * (-1 if self.is_negative else 1)
 	
 	@property
 	def hours(self, df_offset:typing.Optional[int]=None) -> int:
 		"""Timecode hours"""
 		df_offset = df_offset or self._df_offset()
-		return int((self._framenumber + df_offset) / self._rate / 60 / 60)
+		framenumber = abs(self._framenumber)
+		return int((framenumber + df_offset) / self._rate / 60 / 60) * (-1 if self.is_negative else 1)
 	
 	@property
 	def is_negative(self) -> bool:
