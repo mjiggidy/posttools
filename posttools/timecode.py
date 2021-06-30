@@ -38,9 +38,12 @@ class Timecode:
 			except Exception:	
 				raise InvalidTimecode(f"Timecode must be provided as a string or integer value (got {type(timecode)})")
 		
+		
 		# Double-check for sneaky things
 		self._validate()
 
+		if self._mode == Timecode.Mode.DF:
+			self._framenumber = self._framenumber - self._df_to_ndf_offset()
 	
 	def _setFromString(self, timecode:str) -> int:
 		"""Frame number from string format: +hh:mm:ss:ff"""
@@ -89,7 +92,7 @@ class Timecode:
 		if self._mode != self.Mode.DF and force_offset != True:
 			return 0
 
-		framenumber_normalized = abs(self._framenumber)
+		framenumber = abs(self._framenumber)
 		neg = -1 if self.is_negative else 1
 		
 		# Drop-frame adds two frames every minute, except every ten minutes
@@ -101,10 +104,10 @@ class Timecode:
 		drop_segment = full_minute + (drop_minute * 9)	# Length of a drop-segment (in frames) (One full minute + Nine drop minutes = 10 Minutes)
 		
 		# So how many full 10-minute drop-segments have elapsed
-		drop_segments_elapsed = framenumber_normalized // drop_segment
+		drop_segments_elapsed = framenumber // drop_segment
 
 		# And as for the remaining frames at the end...
-		remaining_frames = framenumber_normalized % drop_segment
+		remaining_frames = framenumber % drop_segment
 		remaining_drop_frames = max(remaining_frames - full_minute + 1, 0)	# I don't understand why +1 yet, but that was a problem for like three days. max() will be bad for negative values
 		
 		# Number of complete drop-minutes
@@ -116,6 +119,20 @@ class Timecode:
 
 		return ((drop_segments_elapsed * (9 * drop_offset)) + (drop_minutes_elapsed * drop_offset) + remainder) * neg + (self._rate // 30 if self.is_negative else 0)
 
+	def _df_to_ndf_offset(self) -> int:
+		"""Un-drop frames"""
+		framenumber = abs(self._framenumber)
+		drop_offset = (2 * self._rate // 30)
+		full_minute = self._rate * 60
+
+		# Get ten-minute segments
+		num_full_segments = framenumber // (full_minute * 10)
+		remaining_frames = framenumber - (full_minute * num_full_segments) - full_minute
+
+		# Remaining drop segments
+		num_drop_segments = max((remaining_frames // full_minute), 0)
+
+		return (num_full_segments * 9 * drop_offset) + (num_drop_segments * drop_offset)
 	
 	@property
 	def rate(self) -> int:
@@ -338,7 +355,7 @@ class Timecode:
 class TimecodeRange:
 	"""Timecode range with start, end, and duration"""
 
-	def __init__(self, *, start:typing.Optional[Timecode]=None, end:typing.Optional[Timecode]=None, duration:typing.Optional[Timecode]=None):
+	def __init__(self, /, start:typing.Optional[Timecode]=None, end:typing.Optional[Timecode]=None, duration:typing.Optional[Timecode]=None):
 		"""Timecode range with start, end, and duration"""
 		
 		if isinstance(start, Timecode) and isinstance(duration, Timecode):

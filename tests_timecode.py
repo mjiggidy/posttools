@@ -24,11 +24,11 @@ class TestInstantiation(unittest.TestCase):
 		self.assertIsInstance(tc, Timecode)
 		self.assertEqual(tc.rate,30)
 		self.assertEqual(str(tc), "22:15:08:13")
-	"""	
+	
 	def test_30DF_fromstring(self):
 		tc = Timecode("01:00:00:00", 30, Timecode.Mode.DF)
 		self.assertEqual(str(tc), "01:00:00;00")
-
+	"""
 	def test_30DF_late_fromstring(self):
 		tc = Timecode("20:00:05;00", 30, Timecode.Mode.DF)
 		self.assertEqual(str(tc), "20:00:05;00")
