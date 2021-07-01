@@ -124,13 +124,14 @@ class Timecode:
 		framenumber = abs(self._framenumber)
 		drop_offset = (2 * self._rate // 30)
 		full_minute = self._rate * 60
+		full_segment = full_minute + (9 * (full_minute + drop_offset))
 
 		# Get ten-minute segments
-		num_full_segments = framenumber // (full_minute * 10)
-		remaining_frames = framenumber % (full_minute * 10) - full_minute
+		num_full_segments = framenumber // full_segment
+		remaining_frames = (framenumber % full_segment) - full_minute
 
 		# Remaining drop segments
-		num_drop_segments = max((remaining_frames // full_minute), 0)
+		num_drop_segments = max((remaining_frames // (full_minute + drop_offset)), 0)
 
 		return (num_full_segments * 9 * drop_offset) + (num_drop_segments * drop_offset)
 	

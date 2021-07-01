@@ -25,6 +25,14 @@ class TestInstantiation(unittest.TestCase):
 		self.assertEqual(tc.rate,30)
 		self.assertEqual(str(tc), "22:15:08:13")
 	
+	def test_30DF_beforedrop_fromstring(self):
+		# Checkin' the first minute matches NDF
+		for tc_ndf in TimecodeRange(start=Timecode("00:00:00:00", 30, Timecode.Mode.NDF), end=Timecode("00:01:00:00", 30, Timecode.Mode.NDF)):
+			tc_df = Timecode(str(tc_ndf), 30, Timecode.Mode.DF)
+			# Remove semicolon for rough string comparison
+			str_tc_df = str(tc_df).replace(';',':')
+			self.assertEqual(str(tc_ndf), str(str_tc_df))
+	
 	def test_30DF_fromstring(self):
 		tc = Timecode("01:00:00;00", 30, Timecode.Mode.DF)
 		self.assertEqual(str(tc), "01:00:00;00")
