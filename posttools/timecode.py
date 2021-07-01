@@ -127,7 +127,7 @@ class Timecode:
 
 		# Get ten-minute segments
 		num_full_segments = framenumber // (full_minute * 10)
-		remaining_frames = framenumber - (full_minute * num_full_segments) - full_minute
+		remaining_frames = framenumber % (full_minute * 10) - full_minute
 
 		# Remaining drop segments
 		num_drop_segments = max((remaining_frames // full_minute), 0)
