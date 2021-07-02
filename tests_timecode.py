@@ -33,6 +33,11 @@ class TestInstantiation(unittest.TestCase):
 			str_tc_df = str(tc_df).replace(';',':')
 			self.assertEqual(str(tc_ndf), str(str_tc_df))
 	
+	def test_30DF_drop_roundup(self):
+		self.assertEqual(str(Timecode("00:01:00;00", 30, Timecode.Mode.DF)), "00:01:00;02")
+		self.assertEqual(str(Timecode("00:01:00;01", 30, Timecode.Mode.DF)), "00:01:00;02")
+		self.assertEqual(str(Timecode("00:01:00;02", 30, Timecode.Mode.DF)), "00:01:00;02")
+	
 	def test_30DF_fromstring(self):
 		tc = Timecode("01:00:00;00", 30, Timecode.Mode.DF)
 		self.assertEqual(str(tc), "01:00:00;00")
