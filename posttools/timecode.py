@@ -1,4 +1,4 @@
-import enum, re, typing
+import enum, re, typing, abc
 
 class InvalidTimecode(Exception):
 	"""Timecode has invalid parameters"""
@@ -10,13 +10,75 @@ class Timecode:
 	"""Timecode for video, audio or data"""
 
 	pat_tc = re.compile(r"^([\+\-])?((?:[:;]?\d+){1,4})$")
+
+
+
+	class Mode:
+		"""Frame counting modes"""
+
+		class AbstractCountingMode(abc.ABC):
+			"""Abstract counting mode for converting to/from linear non-drop-frame timecode"""
+
+			@abc.abstractclassmethod
+			def to_adjusted_framenumber(framenumber:int, rate:int) -> int:
+				"""Converts frame number from linear non-drop-frame number to the specialized counting mode"""
+			
+			@abc.abstractclassmethod
+			def from_adjusted_framenumber(framenumber:int, rate:int) -> int:
+				"""Converts from the specialized counting mode to lienar non-drop-frame number"""
+		
+		class NDF(AbstractCountingMode):
+			"""Non-drop frame counting mode"""
+			def to_adjusted_framenumber(framenumber: int, rate: int) -> int:
+				return framenumber
+			
+			def from_adjusted_framenumber(framenumber: int, rate: int) -> int:
+				return framenumber
+		
+		class DF(AbstractCountingMode):
+			"""Drop-frame counting mode"""
+
+			def to_adjusted_framenumber(framenumber: int, rate: int) -> int:
+				"""Calculate frame offset for drop frame"""
+				# TODO: Better
+				framenumber_normalized = abs(framenumber)
+				
+				# Drop-frame adds two frames every minute, except every ten minutes
+				# First: Let's get some things straight
+				drop_offset = (2 * rate // 30)			# Frames to drop -- 2 per 30fps
+				
+				full_minute = rate * 60							# Length of a full non-drop minute (in frames) (60 seconds)
+				drop_minute = full_minute - drop_offset			# Length of a drop-minute (in frames)
+				drop_segment = full_minute + (drop_minute * 9)	# Length of a drop-segment (in frames) (One full minute + Nine drop minutes = 10 Minutes)
+				
+				# So how many full 10-minute drop-segments have elapsed
+				drop_segments_elapsed = framenumber_normalized // drop_segment
+
+				# And as for the remaining frames at the end...
+				remaining_frames = framenumber_normalized % drop_segment
+				remaining_drop_frames = max(remaining_frames - full_minute + 1, 0)	# I don't understand why +1 yet, but that was a problem for like three days. max() will be bad for negative values
+				
+				# Number of complete drop-minutes
+				drop_minutes_elapsed = remaining_drop_frames // drop_minute
+
+				# And then any other frames will need a 2-frame boost! Oooh!
+				remainder = drop_offset if (remaining_drop_frames % drop_minute) else 0
+
+
+				return ((drop_segments_elapsed * (9 * drop_offset)) + (drop_minutes_elapsed * drop_offset) + remainder) # * neg + (rate // 30 if is_negative else 0)
+			
+			def from_adjusted_framenumber(framenumber: int, rate: int) -> int:
+
+				# TODO
+				return framenumber
+
+
+#	class Mode(enum.IntEnum):
+#		"""Timecode frame counting mode (Dropframe / Non-Drop Frame)"""
+#		NDF = 1
+#		DF  = 2
 	
-	class Mode(enum.IntEnum):
-		"""Timecode frame counting mode (Dropframe / Non-Drop Frame)"""
-		NDF = 1
-		DF  = 2
-	
-	def __init__(self, timecode:typing.Union[int,str], rate:typing.Union[int,float]=24, mode:typing.Optional[Mode]=Mode.NDF):
+	def __init__(self, timecode:typing.Union[int,str], rate:typing.Union[int,float]=24, mode:typing.Optional[Mode.AbstractCountingMode]=Mode.NDF):
 		"""Timecode for video, audio or data"""
 		# Parse rate
 		self._rate = round(rate)
@@ -83,38 +145,7 @@ class Timecode:
 		if self._mode == self.Mode.DF and self._rate % 30:
 			raise InvalidTimecode("Drop-frame mode only valid for rates divisible by 30")
 
-	def _df_offset(self, force_offset:bool=False) -> int:
-		"""Calculate frame offset for drop frame"""
-		
-		if self._mode != self.Mode.DF and force_offset != True:
-			return 0
 
-		framenumber_normalized = abs(self._framenumber)
-		neg = -1 if self.is_negative else 1
-		
-		# Drop-frame adds two frames every minute, except every ten minutes
-		# First: Let's get some things straight
-		drop_offset = (2 * self._rate // 30)			# Frames to drop -- 2 per 30fps
-		
-		full_minute = self._rate * 60					# Length of a full non-drop minute (in frames) (60 seconds)
-		drop_minute = full_minute - drop_offset			# Length of a drop-minute (in frames)
-		drop_segment = full_minute + (drop_minute * 9)	# Length of a drop-segment (in frames) (One full minute + Nine drop minutes = 10 Minutes)
-		
-		# So how many full 10-minute drop-segments have elapsed
-		drop_segments_elapsed = framenumber_normalized // drop_segment
-
-		# And as for the remaining frames at the end...
-		remaining_frames = framenumber_normalized % drop_segment
-		remaining_drop_frames = max(remaining_frames - full_minute + 1, 0)	# I don't understand why +1 yet, but that was a problem for like three days. max() will be bad for negative values
-		
-		# Number of complete drop-minutes
-		drop_minutes_elapsed = remaining_drop_frames // drop_minute
-
-		# And then any other frames will need a 2-frame boost! Oooh!
-		remainder = drop_offset if (remaining_drop_frames % drop_minute) else 0
-
-
-		return ((drop_segments_elapsed * (9 * drop_offset)) + (drop_minutes_elapsed * drop_offset) + remainder) * neg + (self._rate // 30 if self.is_negative else 0)
 
 	
 	@property
@@ -195,27 +226,12 @@ class Timecode:
 
 		factor = new_rate / self._rate
 
-		# For drop-frame conversions, apply or remove the dropped frame offset
-
-
-		"""
-		if self._mode == self.Mode.DF and new_mode == self.Mode.NDF:
-			df_offset = self._df_offset()
-			old_framenumber = self._framenumber + df_offset
-
-		elif self._mode == self.Mode.NDF and new_mode == self.Mode.DF:
-			df_offset = self._df_offset(True)
-			print(df_offset)
-			old_framenumber = self._framenumber - df_offset
-		"""
-
 		if self._mode == self.Mode.DF or new_mode == self.Mode.DF:
 			raise NotImplementedError("No DF not yet too hard")
 			
 		else:
 			old_framenumber = self._framenumber
 			
-		
 		return Timecode(round(old_framenumber * factor), new_rate, new_mode)
 
 
