@@ -4,6 +4,8 @@ Scripts/
 bin/
 Include/
 pyvenv.cfg
+*.egg-info
+temp
 
 # python
 *.pyc
