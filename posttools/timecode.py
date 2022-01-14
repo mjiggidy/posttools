@@ -26,10 +26,19 @@ class Timecode:
 			@abc.abstractclassmethod
 			def from_adjusted_framenumber(cls, framenumber:int, rate:int) -> int:
 				"""Converts from the specialized counting mode to lienar non-drop-frame number"""
+
+			@staticmethod
+			def is_valid_frame(framenumber:int, rate:int) -> bool:
+				"""
+				Validate a frame number and rate for the given counting mode
+				Recommend throwing an InvalidTimecode exception with a useful message, but not required
+				Must return a bool either way
+				"""
+				return True
 			
+			# TODO: Does not work?
 			@classmethod
 			def __str__(cls):
-				print("HI")
 				return cls.__class__.__name__
 			
 			@classmethod
@@ -79,20 +88,20 @@ class Timecode:
 				remainder = drop_offset if (remaining_drop_frames % drop_minute) else 0
 
 
-				return ((drop_segments_elapsed * (9 * drop_offset)) + (drop_minutes_elapsed * drop_offset) + remainder) # * neg + (rate // 30 if is_negative else 0)
+				return framenumber + ((drop_segments_elapsed * (9 * drop_offset)) + (drop_minutes_elapsed * drop_offset) + remainder) # * neg + (rate // 30 if is_negative else 0)
 			
 			@staticmethod
 			@functools.cache
 			def from_adjusted_framenumber(cls, framenumber: int, rate: int) -> int:
-
 				# TODO
 				return framenumber
+			
+			@staticmethod
+			def is_valid_frame(framenumber:int, rate:int) -> bool:
+				# Drop frame is only defined for rate multiples of 30
+				if rate % 30:
+					raise InvalidTimecode("Drop-frame mode only valid for rates divisible by 30")
 
-
-#	class Mode(enum.IntEnum):
-#		"""Timecode frame counting mode (Dropframe / Non-Drop Frame)"""
-#		NDF = 1
-#		DF  = 2
 	
 	def __init__(self, timecode:typing.Union[int,str], rate:typing.Union[int,float]=24, mode:typing.Optional[Mode.AbstractCountingMode]=Mode.NDF):
 		"""Timecode for video, audio or data"""
@@ -106,7 +115,6 @@ class Timecode:
 		# TODO: If already timecode, how to determine existing rate/mode vs given rate/mode, or if this should even be supported
 		if isinstance(timecode, str):
 			self._framenumber = self._setFromString(timecode)
-			#if self.mode is self.Mode.DF: self._framenumber -= round(self._framenumber * 0.06666)
 		
 		elif isinstance(timecode, int):
 			self._framenumber = timecode
@@ -161,7 +169,7 @@ class Timecode:
 			raise InvalidTimecode("Frame rate must be a positive number")
 
 		# Mode check
-		if self.mode == self.Mode.DF and self.rate % 30:
+		if not self.mode.is_valid_frame(self.framenumber, self.rate):
 			raise InvalidTimecode("Drop-frame mode only valid for rates divisible by 30")
 
 
@@ -431,7 +439,7 @@ class TimecodeRange:
 	
 	@property
 	def mode(self) -> Timecode.Mode:
-		"""Drop frame mode"""
+		"""Counting mode"""
 		return self.start.mode
 	
 	@property
