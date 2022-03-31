@@ -6,4 +6,4 @@
 - Support for shots in the form of masterclips and subclips
 - Support for shot lists extendable to EDL/ALE/AAF/XML
 
-Like frame.io, but not as good.
+Like OpenTimelineIO, but not as good.
