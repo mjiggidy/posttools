@@ -11,8 +11,6 @@ class Timecode:
 
 	pat_tc = re.compile(r"^([\+\-])?((?:[:;]?\d+){1,4})$")
 
-
-
 	class Mode:
 		"""Frame counting modes"""
 
