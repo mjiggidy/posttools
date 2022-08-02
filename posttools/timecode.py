@@ -277,18 +277,37 @@ class Timecode:
 		
 		# Attempt to create a new Timecode object with matching rate and mode
 		# Enjoy the InvalidTimecode exception if this doesn't work
-		return Timecode(other, self.rate, self.mode)
+		try:
+			return Timecode(other, self.rate, self.mode)
+		except InvalidTimecode:
+			raise NotImplementedError
 
 	def __add__(self, other:typing.Any) -> "Timecode":
-		"""Adds a timecode
+		"""
+		Adds a timecode
 
 		If the second addend is of a different rate or mode, it will be converted to the same as the first addend.
 		"""
 		other = self._cmp_normalize(other).resample(self.rate, self.mode)
 		return Timecode(self.framenumber + other.framenumber, self.rate, self.mode)
+	
+	def __radd__(self, other:typing.Any) -> typing.Any:
+		other_type = type(other)
+		return other + other_type(self)
+	
+	def __rsub__(self, other:typing.Any) -> typing.Any:
+		other_type = type(other)
+		return other - other_type(self)
+	
+	def __int__(self) -> int:
+		return self.framenumber
+	
+	def __float__(self) -> float:
+		return float(self.framenumber)
 
 	def __sub__(self, other) -> "Timecode":
-		"""Subtracts a timecode
+		"""
+		Subtracts a timecode
 
 		If the subtrahend is of a different rate or mode, it will be converted to the same as the minuend.
 		"""
@@ -296,7 +315,8 @@ class Timecode:
 		return Timecode(self.framenumber - other.framenumber, self.rate, self.mode)
 
 	def __mul__(self, other:typing.Any) -> "Timecode":
-		"""Multiplies a timecode
+		"""
+		Multiplies a timecode
 
 		If the subtrahend is of a different rate or mode, it will be converted to the same as the minuend.
 		"""
@@ -304,7 +324,8 @@ class Timecode:
 		return Timecode(self.framenumber * other.framenumber, self.rate, self.mode)
 
 	def __truediv__(self, other:typing.Any) -> "Timecode":
-		"""Divides a timecode
+		"""
+		Divides a timecode
 
 		If the subtrahend is of a different rate or mode, it will be converted to the same as the minuend.
 		"""
@@ -317,7 +338,8 @@ class Timecode:
 		return self.is_compatible(other) and self.framenumber == other.framenumber
 	
 	def __lt__(self, other:typing.Any) -> bool:
-		"""Confirm this timecode is less than another
+		"""
+		Confirm this timecode is less than another
 		
 		Precedence: NDF < DF; frame rate; frame number
 		"""
@@ -331,7 +353,8 @@ class Timecode:
 			return self.framenumber < other.framenumber
 
 	def __gt__(self, other:typing.Any) -> bool:
-		"""Confirm this timecode is greater than another
+		"""
+		Confirm this timecode is greater than another
 		
 		Precedence: DF > NDF; frame rate; frame number
 		"""
@@ -345,7 +368,8 @@ class Timecode:
 			return self.framenumber > other.framenumber
 	
 	def __le__(self, other:typing.Any) -> bool:
-		"""Confirm this timecode is less than or equal to another
+		"""
+		Confirm this timecode is less than or equal to another
 		
 		Precedence: NDF < DF; frame rate; frame number
 		"""
@@ -358,7 +382,8 @@ class Timecode:
 			return self.framenumber <= other.framenumber
 	
 	def __ge__(self, other:typing.Any) -> bool:
-		"""Confirm this timecode is greater than or equal to another
+		"""
+		Confirm this timecode is greater than or equal to another
 		
 		Precedence: DF > NDF; frame rate; frame number
 		"""
