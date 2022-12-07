@@ -402,6 +402,8 @@ class Timecode:
 class TimecodeRange:
 	"""Timecode range with start, end, and duration"""
 
+	ALLOW_NEGATIVE_RANGES = True
+
 	def __init__(self, *, start:typing.Optional[Timecode]=None, end:typing.Optional[Timecode]=None, duration:typing.Optional[Timecode]=None):
 		"""Timecode range with start, end, and duration"""
 		
@@ -433,7 +435,7 @@ class TimecodeRange:
 			raise ValueError("Must supply two of start, end or duration")	
 		
 		# Validate timecode compatibility
-		if self._duration < 1:
+		if self._duration < 1 and not self.__class__.ALLOW_NEGATIVE_RANGES:
 			raise IncompatibleTimecode("End timecode must occur after start timecode")
 		
 	def resample(self, rate:typing.Union[int,float,None]=None, mode:typing.Optional[Timecode.Mode]=None) -> "TimecodeRange":
