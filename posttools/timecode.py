@@ -493,7 +493,7 @@ class TimecodeRange:
 		return f"<{self.__class__.__name__} {self}>"
 	
 	def __str__(self) -> str:
-		return f"{self.start}-{self.end} {self.rate}fps {self.mode}"
+		return f"{self.start}-{self.end} {self.rate}fps {self.mode.__name__}"
 	
 	def __iter__(self) -> Timecode:
 		for frame in range(self.start.framenumber, self.end.framenumber):
