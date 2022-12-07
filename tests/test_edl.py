@@ -7,7 +7,9 @@ def main():
 		for path_edl in sys.argv[1:]:
 			print(path_edl,":")
 			with open(path_edl) as file_edl:
-				print(Edl.from_file(file_edl))
+				edl = Edl.from_file(file_edl)
+				print(edl)
+				print("Tracks:", edl.tracks)
 	else:
 		print(Edl())
 
