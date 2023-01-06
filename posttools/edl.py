@@ -145,7 +145,9 @@ class Edl:
 		mode =_ParseModes.TITLE
 		events = list()
 
-		buffer = []
+		event_buffer = []
+		current_index = -1
+		
 		for line_num, line_edl in enumerate(l.rstrip('\n') for l in file.readlines()):
 
 			try:
@@ -161,19 +163,34 @@ class Edl:
 				
 				elif mode == _ParseModes.EVENT_START:
 					# Parse events
-					event_match = Event.pat_event.match(line_edl)
-					if event_match:
-						event = cls._parse_new_event(event_match)
-						event.notes.extend(buffer)
-						buffer=[]
-						events.append(event)
-					else:
-						buffer.append(line_edl)
+					if cls._is_begin_new_event(line_edl, current_index):
+						events.append(event_buffer.copy())
+						event_buffer=[]
+						current_index = -1
+					# TODO: Temp...?
+					if line_edl.split()[0].isnumeric():
+						current_index=line_edl.split()[0]
+					event_buffer.append(line_edl)
 				
 			except Exception as e:
 				raise ValueError(f"Line {line_num+1}: {e}")
 		
 		return cls(title=title, fcm=fcm, events=events)
+	
+	@staticmethod
+	def _is_begin_new_event(line:str, current_index) -> bool:
+		"""Determine if we're beginning a new event with this line"""
+		first_token = line.split(maxsplit=1)[0]
+		
+		# Encountered prefixed form statement while parsing an event
+		if first_token.lower() in ["FCM:","SPLIT:"] and current_index > 0:
+			return True
+		
+		elif first_token.isnumeric() and first_token != current_index:
+			return True
+
+		return False
+
 			
 	@staticmethod
 	def _parse_title(line:str) -> str:
