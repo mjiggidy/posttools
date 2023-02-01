@@ -1,6 +1,19 @@
 import enum, typing, io, re
 from posttools.timecode import Timecode, TimecodeRange
 
+class Fcm(enum.Enum):
+	"""EDL frame counting modes"""
+	# TODO: CMX3600: FCM does not appear in PAL systems
+	NON_DROP_FRAME = "NON-DROP FRAME"
+	DROP_FRAME = "DROP FRAME"
+
+class _ParseModes(enum.Enum):
+	START = enum.auto()
+	TITLE = enum.auto()
+	FCM   = enum.auto()
+	EVENT_START = enum.auto()
+	EVENT_DETAILS = enum.auto()
+
 class Event:
 	"""An EDL Event"""
 	# CMX3600: Standard Form Statement
@@ -20,8 +33,9 @@ class Event:
 
 	"""
 
-	def __init__(self, reel:str, track:"Track", source_tc:TimecodeRange, record_tc:TimecodeRange):
+	def __init__(self, reel:str, track:"Track", source_tc:TimecodeRange, record_tc:TimecodeRange, fcm:Fcm):
 		self._track = track
+		self._fcm = fcm
 		self._reel = reel
 		self._tc_source = source_tc
 		self._tc_record = record_tc
@@ -45,6 +59,11 @@ class Event:
 	@property
 	def tc_record(self) -> TimecodeRange:
 		return self._tc_record
+
+	@property
+	def fcm(self) -> Fcm:
+		"""Frame counting mode of this event"""
+		return self._fcm
 	
 	def __str__(self) -> str:
 		notes = "\n".join(self.notes)
@@ -116,21 +135,14 @@ class Track:
 
 
 
-class Fcm(enum.Enum):
-	"""EDL frame counting modes"""
-	# TODO: CMX3600: FCM does not appear in PAL systems
-	NON_DROP_FRAME = "NON-DROP FRAME"
-	DROP_FRAME = "DROP FRAME"
-
-class _ParseModes(enum.Enum):
-	START = enum.auto()
-	TITLE = enum.auto()
-	FCM   = enum.auto()
-	EVENT_START = enum.auto()
-	EVENT_DETAILS = enum.auto()
 
 class Edl:
 	"""An Edit Decision List"""
+
+	"""
+	TODO:
+	Structurally, maybe Edl keeps a list of record TCs and references to Events that only track their local in/out
+	"""
 	
 	def __init__(self, *, title:str="Untitled EDL", fcm:Fcm=Fcm.NON_DROP_FRAME, events:typing.Optional[typing.Iterable[Event]]=None):
 
@@ -139,59 +151,61 @@ class Edl:
 		self._events = list(events) if events else []
 
 	@classmethod
-	def from_file(cls, file:io.BufferedReader):
+	def from_file(cls, file_edl:io.BufferedReader):
 		"""Create an EDL from an input file stream"""
-
-		mode =_ParseModes.TITLE
-		events = list()
+		
+		events = []
 
 		event_buffer = []
-		current_index = -1
-		
-		for line_num, line_edl in enumerate(l.rstrip('\n') for l in file.readlines()):
+		current_index = 0
+
+		title = cls._parse_title(file_edl.readline())
+
+		for line_num, line_edl in enumerate(l.rstrip('\n') for l in file_edl.readlines()):
+
+			if not line_edl:
+				continue
 
 			try:
-				if mode == _ParseModes.TITLE:
-					# Get the EDL title
-					title = cls._parse_title(line_edl)
-					mode = _ParseModes.FCM
+				# If starting next event, process event buffer and flush
+				if event_buffer and cls._is_begin_new_event(line_edl, current_index):
+					events.append(cls._parse_new_event_from_buffer(event_buffer))
+					event_buffer=[]
+					current_index = 0
+				
+				# Made note of our current event number if specified
+				if line_edl.split()[0].isnumeric():
+					current_index=int(line_edl.split()[0])
+				
+				event_buffer.append(line_edl)
 
-				elif mode == _ParseModes.FCM:
-					# Get the Frame Count Mode
-					fcm = cls._parse_fcm(line_edl)
-					mode = _ParseModes.EVENT_START
-				
-				elif mode == _ParseModes.EVENT_START:
-					# Parse events
-					if cls._is_begin_new_event(line_edl, current_index):
-						events.append(event_buffer.copy())
-						event_buffer=[]
-						current_index = -1
-					# TODO: Temp...?
-					if line_edl.split()[0].isnumeric():
-						current_index=line_edl.split()[0]
-					event_buffer.append(line_edl)
-				
 			except Exception as e:
-				raise ValueError(f"Line {line_num+1}: {e}")
+				raise ValueError(f"Line {line_num+2}: {e}")
 		
-		return cls(title=title, fcm=fcm, events=events)
+		if event_buffer:
+			events.append(cls._parse_new_event_from_buffer(event_buffer))
+		
+		return cls(title=title, fcm=Fcm.NON_DROP_FRAME, events=events)
 	
 	@staticmethod
-	def _is_begin_new_event(line:str, current_index) -> bool:
+	def _is_begin_new_event(line:str, current_index:int) -> bool:
 		"""Determine if we're beginning a new event with this line"""
+
+		if not current_index:
+			return False
+
 		first_token = line.split(maxsplit=1)[0]
 		
 		# Encountered prefixed form statement while parsing an event
-		if first_token.lower() in ["FCM:","SPLIT:"] and current_index > 0:
+		if first_token.lower() in ["FCM:","SPLIT:"]:
 			return True
 		
-		elif first_token.isnumeric() and first_token != current_index:
+		# Encountered an event number different than the one we been doin'
+		elif first_token.isnumeric() and int(first_token) != current_index:
 			return True
 
 		return False
 
-			
 	@staticmethod
 	def _parse_title(line:str) -> str:
 		"""Extract a title from a line in an EDL"""
@@ -218,16 +232,31 @@ class Edl:
 	# TODO: Maybe these parsers belong in the class they are related to.
 	# That mades TOO much sense.
 	@staticmethod
-	def _parse_new_event(event_match:re.Match) -> Event:
+	def _parse_new_event_from_buffer(buffer:typing.Iterable[str]) -> Event:
 		"""Create a new event based on that match"""
-		track = Track(event_match.group("track_type"))
-		source_tc = TimecodeRange(start=Timecode(event_match.group("tc_src_in")), end=Timecode(event_match.group("tc_src_out")))
-		record_tc = TimecodeRange(start=Timecode(event_match.group("tc_rec_in")), end=Timecode(event_match.group("tc_rec_out")))
+
+		event = None
+		notes = []
+		for line in buffer:
+			event_match = Event.pat_event.match(line)
+			if event_match:
+				event = Event(
+					reel = event_match.group("reel_name"),
+					source_tc = TimecodeRange(start=Timecode(event_match.group("tc_src_in")), end=Timecode(event_match.group("tc_src_out"))),
+					record_tc = TimecodeRange(start=Timecode(event_match.group("tc_rec_in")), end=Timecode(event_match.group("tc_rec_out"))),
+					track = Track(event_match.group("track_type")),
+					fcm=Fcm.NON_DROP_FRAME #TODO: CHANGE THIS
+				)
+
+			else:
+				notes.append(line)
 
 		#print(source_tc, record_tc)
 
-
-		return Event(reel=event_match.group("reel_name"), source_tc=source_tc, record_tc=record_tc, track=track)
+		if not event:
+			raise ValueError("No event found")
+		else:
+			return event
 	
 	def write(self, file:io.TextIOBase):
 		"""Write the EDL to a given stream"""
