@@ -1,4 +1,4 @@
-import enum, typing, io, re
+import enum, typing, io, re, functools
 from posttools.timecode import Timecode, TimecodeRange
 
 class Fcm(enum.Enum):
@@ -87,9 +87,11 @@ class Note:
 		SPLIT:    VIDEO DELAY=  00:00:02:00
 	"""
 	
-
+@functools.total_ordering
 class Track:
 	"""A track containing events in the EDL"""
+
+	tracks = set()
 
 	class Type(enum.Enum):
 		"""Types of EDL tracks"""
@@ -118,11 +120,21 @@ class Track:
 	def type(self) -> Type:
 		"""The type of data in this EDL track"""
 		return self._type
+		
+	@property
+	def track_index(self) -> int:
+		"""The track index for the given track type"""
+		return self._index
 	
 	def __eq__(self, other) -> bool:
 		if not isinstance(other, self.__class__):
 			return False
 		return self.name == other.name
+	
+	def __lt__(self, other) -> bool:
+		if not isinstance(other, self.__class__):
+			return False
+		return self.track_index < other.track_index
 	
 	def __hash__(self) -> int:
 		return hash(self.name)
@@ -132,10 +144,7 @@ class Track:
 	
 	def __repr__(self) -> str:
 		return f"<{self.__class__.__name__} name={self.name}>"
-
-
-
-
+	
 class Edl:
 	"""An Edit Decision List"""
 
@@ -155,11 +164,10 @@ class Edl:
 		"""Create an EDL from an input file stream"""
 		
 		events = []
-
 		event_buffer = []
 		current_index = 0
 
-		title = cls._parse_title(file_edl.readline())
+		title = cls._parse_title_from_line(file_edl.readline())
 
 		for line_num, line_edl in enumerate(l.rstrip('\n') for l in file_edl.readlines()):
 
@@ -173,7 +181,7 @@ class Edl:
 					event_buffer=[]
 					current_index = 0
 				
-				# Made note of our current event number if specified
+				# Make note of our current event number if specified
 				if line_edl.split()[0].isnumeric():
 					current_index=int(line_edl.split()[0])
 				
@@ -182,6 +190,8 @@ class Edl:
 			except Exception as e:
 				raise ValueError(f"Line {line_num+2}: {e}")
 		
+		# Take care of the last little feller.
+		# TODO: How to not have to do this?
 		if event_buffer:
 			events.append(cls._parse_new_event_from_buffer(event_buffer))
 		
@@ -207,7 +217,7 @@ class Edl:
 		return False
 
 	@staticmethod
-	def _parse_title(line:str) -> str:
+	def _parse_title_from_line(line:str) -> str:
 		"""Extract a title from a line in an EDL"""
 		start = "title:"
 		if not line.lower().startswith(start):
@@ -218,7 +228,7 @@ class Edl:
 		return title
 	
 	@staticmethod
-	def _parse_fcm(line:str) -> Fcm:
+	def _parse_fcm_from_line(line:str) -> Fcm:
 		"""Extract the FCM from a line in an EDL"""
 		start = "fcm:"
 		if not line.lower().startswith(start):
@@ -230,7 +240,7 @@ class Edl:
 		return fcm
 	
 	# TODO: Maybe these parsers belong in the class they are related to.
-	# That mades TOO much sense.
+	# Maybe that makes TOO much sense.
 	@staticmethod
 	def _parse_new_event_from_buffer(buffer:typing.Iterable[str]) -> Event:
 		"""Create a new event based on that match"""
@@ -250,8 +260,6 @@ class Edl:
 
 			else:
 				notes.append(line)
-
-		#print(source_tc, record_tc)
 
 		if not event:
 			raise ValueError("No event found")
