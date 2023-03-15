@@ -6,9 +6,13 @@ Include/
 pyvenv.cfg
 *.egg-info
 temp
+examples
 
 # python
 *.pyc
 
-#vscode
+# vscode
 .vscode/
+
+# Puh
+.DS_Store
