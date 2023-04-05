@@ -157,7 +157,7 @@ class StandardFormStatement(abc.ABC):
 	@property
 	def reel_name(self) -> str:
 		"""The reel name referenced for this statement"""
-		return str(self.source._NAME)
+		return str(self.source.name)
 	
 	@property
 	def tracks(self) -> typing.Set["Track"]:
@@ -337,7 +337,85 @@ class WipeStatement(StandardFormStatement):
 		return f"{str(self.event_number if self.event_number is not None else 1).zfill(3)}  {self.reel_name.ljust(128)}  {str().join(t.name for t in self.tracks).ljust(3)}  W{str(self.wipe_id).zfill(3)}  {str(self.wipe_length).zfill(3)}  {self.timecode_source.start} {self.timecode_source.end} {self.timecode_record.start} {self.timecode_record.end}"
 
 class NoteFormStatement(abc.ABC):
-	pass
+	"""Note form statement"""
+
+	""""
+	TODO: CMX3600:
+	FCM:	Frame code mode change (goes before event)
+	SPLIT:	Audio/Video split in-time (goes before event) (?)
+	GPI		GPI trigger
+	M/S		Master/Slave
+	SWM		Switcher memory
+	M2		Motion memory
+	%		Motion memory variable data
+
+	Split examples: (TC is the delay relative to the in-point)
+		SPLIT:    AUDIO DELAY=  00:00:00:05
+		SPLIT:    VIDEO DELAY=  00:00:02:00
+	"""
+
+	@classmethod
+	def all_statement_types(cls) -> typing.Generator["NoteFormStatement", None, None]:
+		"""Return all subclasses of this type of statement"""
+
+		for statement in cls.__subclasses__():
+			yield from statement.all_statement_types()
+			yield statement
+
+class MotionMemoryNoteFormStatement(NoteFormStatement):
+	"""A motion memory (M2) note form statement"""
+	# TODO: Currently supports respeeds but no variable (%) data
+
+	PAT_NOTE = re.compile(
+		r"^(?P<note_type>M2)"
+		r"\s+"
+		r"(?P<reel_name>[^\s]+)"
+		r"\s+"
+		r"(?P<speed>[\+\-\.0-9]+)\s+"
+		r"(?P<tc_src_start>\d{2}:\d{2}:\d{2}:\d{2})\s+"
+	, re.I)
+
+	def __init__(self, reel_name:str, speed:float, tc_start:Timecode):
+		self._reel = SourceReel.from_string(reel_name)
+		self._speed = float(speed)
+		self._tc_start = tc_start
+
+	@property
+	def source(self) -> SourceReel:
+		"""The source reel referenced for this statement"""
+		return self._reel
+
+	@property
+	def reel_name(self) -> str:
+		"""The reel name referenced for this statement"""
+		return str(self.source.name)
+	
+	@property
+	def speed(self) -> float:
+		"""The speed of the motion"""
+		return self._speed
+	
+	@property
+	def timecode_start(self) -> Timecode:
+		"""The source start timecode for this respeed"""
+		return self._tc_start
+
+	@classmethod
+	def parse_from_pattern(cls, statement:re.Pattern) -> "MotionMemoryNoteFormStatement":
+		"""Create an M2 note from a parsed regex string"""
+
+		reel_name = statement.group("reel_name")
+		speed = float(statement.group("speed"))
+		tc_start = Timecode(statement.group("tc_src_start"))
+
+		return cls(
+			reel_name=reel_name,
+			speed=speed,
+			tc_start=tc_start
+		)
+	
+	def __str__(self) -> str:
+		return f"M2    {self.reel_name.ljust(129)}  {str(round(self.speed,1)).zfill(6 if self.speed < 0 else 5).rjust(6)}  {self.timecode_start}"
 
 class Event:
 	"""An EDL Event"""
@@ -352,7 +430,7 @@ class Event:
 			raise ValueError(f"Standard Form Statements must have matching FCMs")
 		self._fcm = fcm.pop()
 
-		self.comments = comments if comments else list() # TODO: Temp thing
+		self._comments = comments if comments else list() # TODO: Temp thing
 
 	@classmethod
 	def from_string(cls, event:str) -> "Event":
@@ -369,6 +447,8 @@ class Event:
 			parsed = cls._identify_line(line)
 			if isinstance(parsed, StandardFormStatement):
 				sfs.append(parsed)
+			elif isinstance(parsed, NoteFormStatement):
+				nfs.append(parsed)
 			elif isinstance(parsed, str):
 				comments.append(parsed)
 			else:
@@ -381,12 +461,17 @@ class Event:
 		)
 			
 	@classmethod
-	def _identify_line(cls, line:str) -> typing.Union[re.Pattern, str, None]:
+	def _identify_line(cls, line:str) -> typing.Union[StandardFormStatement, NoteFormStatement, str]:
 		"""Identify a line"""
 		for s in StandardFormStatement.all_statement_types():
 			match = s.PAT_EVENT.match(line)
 			if match:
 				parsed = s.parse_from_pattern(match)
+				return parsed
+		for n in NoteFormStatement.all_statement_types():
+			match = n.PAT_NOTE.match(line)
+			if match:
+				parsed = n.parse_from_pattern(match)
 				return parsed
 		return line
 		
@@ -398,6 +483,18 @@ class Event:
 			for track in s.tracks:
 				tracks.add(track)
 		return tracks
+	
+	@property
+	def standard_statements(self) -> typing.Generator["StandardFormStatement", None, None]:
+		yield from self._sfs
+
+	@property
+	def note_statements(self) -> typing.Generator["NoteFormStatement", None, None]:
+		yield from self._nfs
+	
+	@property
+	def comments(self) -> typing.Generator[str, None, None]:
+		yield from self._comments
 	
 	@property
 	def sources(self) -> typing.Set[SourceReel]:
@@ -440,23 +537,6 @@ class Event:
 
 		return output
 
-class Note:
-	"""Note form statement"""
-
-	""""
-	TODO: CMX3600:
-	FCM:	Frame code mode change (goes before event)
-	SPLIT:	Audio/Video split in-time (goes before event) (?)
-	GPI		GPI trigger
-	M/S		Master/Slave
-	SWM		Switcher memory
-	M2		Motion memory
-	%		Motion memory variable data
-
-	Split examples: (TC is the delay relative to the in-point)
-		SPLIT:    AUDIO DELAY=  00:00:00:05
-		SPLIT:    VIDEO DELAY=  00:00:02:00
-	"""
 	
 @functools.total_ordering
 class Track:
